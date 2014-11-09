@@ -6,7 +6,7 @@
 * [Amazon Kinesis Client Library GitHub and Documentation][docs-kcl]
 * [DynamoDB Forum][dynamodb-forum]
 * [DynamoDB Details][dynamodb-details]
-* [Issues][adapter-issues]] 
+* [Issues][adapter-issues] 
 
 ## Features
 
@@ -20,7 +20,7 @@ This is a preview release of this adapter that works with the preview release of
 
 1. **Sign up for AWS** - Before you begin, you need an AWS account. Please see the [AWS Account and Credentials][docs-signup] section of the developer guide for information about how to create an AWS account and retrieve your AWS credentials. You don’t need this if you’re using DynamoDB Local.  In fact unless you’re signed up for preview, you can ONLY use this with local. 
 1. **Minimum requirements** - To run the SDK you will need **Java 1.7+**. For more information about the requirements and optimum settings for the SDK, please see the [Java Development Environment][docs-signup] section of the developer guide.
-1. **Install the preview release of the AWS Java SDK - To download the SDK please follow the [AWS Java SDK Preview][sdk]. Then you need to install AWS JAVA SDK jar into your local Maven repository by typing: 'mvn install:install-file -Dfile=aws-java-sdk-1.9.4a-preview.jar -DgroupId=com.amazonaws -DartifactId=aws-java-sdk -Dversion=1.9.4a-preview -Dpackaging=jar'.
+1. **Install the preview release of the AWS Java SDK** - To download the SDK please follow the [AWS Java SDK Preview][sdk]. Then you need to install AWS JAVA SDK jar into your local Maven repository by typing: 'mvn install:install-file -Dfile=aws-java-sdk-1.9.4a-preview.jar -DgroupId=com.amazonaws -DartifactId=aws-java-sdk -Dversion=1.9.4a-preview -Dpackaging=jar'.
 1. **Install the DynamoDB Streams Kinesis Adapter** - Using ***Maven*** is the recommended way to install the DynamoDB Streams Kinesis Adapter and its dependencies, including the AWS SDK for Java.  To download the code from GitHub, simply clone the repository by typing: `git clone https://github.com/awslabs/dynamodb-streams-kinesis-adapter`, and run the Maven command described below in "Building From Source".
 1. **Build your first application** - There is a walkthrough to help you build first application using this adapter. Please see [DynamoDB Developer Guide][docs-dynamodb-streams].   
 
