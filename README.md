@@ -33,5 +33,5 @@ Once you check out the code from GitHub, you can build it using Maven.  To disab
 [dynamodb-forum]: http://developer.amazonwebservices.com/connect/forum.jspa?forumID=70 
 [dynamodb-details]: http://aws.amazon.com/dynamodb
 [adapter-issues]: https://github.com/awslabs/dynamodb-streams-kinesis-adapter/issues
-[sdk]: https://dynamodb-preview.s3-website-us-west-2.amazonaws.com/aws-java-sdk-latest-preview.zip
+[sdk]: http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/aws-java-sdk-latest-preview.zip
 [docs-signup]: http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/java-dg-setup.html
