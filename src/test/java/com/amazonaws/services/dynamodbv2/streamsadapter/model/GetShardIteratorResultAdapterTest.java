@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorResultAdapter;
 
 public class GetShardIteratorResultAdapterTest {
     private final String TEST_STRING = "TestString";

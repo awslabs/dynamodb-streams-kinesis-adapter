@@ -24,6 +24,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.Shard;
 import com.amazonaws.services.dynamodbv2.model.SequenceNumberRange;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ShardAdapter;
 
 public class ShardAdapterTest {
     private final String TEST_STRING = "TestString";

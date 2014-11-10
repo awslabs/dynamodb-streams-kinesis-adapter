@@ -24,6 +24,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsRequestAdapter;
 import com.amazonaws.services.kinesis.model.GetRecordsRequest;
 
 public class GetRecordsRequestAdapterTest {

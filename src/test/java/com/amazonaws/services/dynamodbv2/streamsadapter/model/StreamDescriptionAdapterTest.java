@@ -27,6 +27,8 @@ import org.mockito.MockitoAnnotations;
 import com.amazonaws.services.dynamodbv2.model.Shard;
 import com.amazonaws.services.dynamodbv2.model.StreamDescription;
 import com.amazonaws.services.dynamodbv2.model.StreamStatus;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ShardAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.StreamDescriptionAdapter;
 
 public class StreamDescriptionAdapterTest {
     private final String TEST_STRING = "TestString";
@@ -91,11 +93,11 @@ public class StreamDescriptionAdapterTest {
 
         when(mockDescription.getStreamStatus()).thenReturn(StreamStatus.DISABLING.toString());
         actual = adapter.getStreamStatus();
-        assertEquals(com.amazonaws.services.kinesis.model.StreamStatus.DELETING.toString(), actual);
+        assertEquals(com.amazonaws.services.kinesis.model.StreamStatus.ACTIVE.toString(), actual);
 
         when(mockDescription.getStreamStatus()).thenReturn(StreamStatus.DISABLED.toString());
         actual = adapter.getStreamStatus();
-        assertEquals(com.amazonaws.services.kinesis.model.StreamStatus.DELETING.toString(), actual);
+        assertEquals(com.amazonaws.services.kinesis.model.StreamStatus.ACTIVE.toString(), actual);
     }
 
     @Test(expected=UnsupportedOperationException.class)

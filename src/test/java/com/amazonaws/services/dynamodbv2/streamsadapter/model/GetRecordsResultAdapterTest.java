@@ -25,6 +25,8 @@ import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.GetRecordsResult;
 import com.amazonaws.services.dynamodbv2.model.Record;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsResultAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
 
 public class GetRecordsResultAdapterTest {
     private final String TEST_STRING = "TestString";

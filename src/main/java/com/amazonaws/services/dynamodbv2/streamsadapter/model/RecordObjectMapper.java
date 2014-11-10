@@ -39,7 +39,7 @@ import com.fasterxml.jackson.databind.deser.std.DateDeserializers.DateDeserializ
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.DateSerializer;
 
-public class DynamoDBStreamsObjectMapper extends ObjectMapper {
+public class RecordObjectMapper extends ObjectMapper {
     public static final String L = "L";
     public static final String M = "M";
     public static final String BS = "BS";
@@ -62,12 +62,11 @@ public class DynamoDBStreamsObjectMapper extends ObjectMapper {
     public static final String EVENT_ID = "EventID";
     public static final String EVENT_NAME = "EventName";
     public static final String EVENT_SOURCE = "EventSource";
-    public static final String EVENT_TIME = "EventTime";
     public static final String EVENT_VERSION = "EventVersion";
 
     private static final String MODULE = "custom";
 
-    public DynamoDBStreamsObjectMapper() {
+    public RecordObjectMapper() {
         super();
         SimpleModule module = new SimpleModule(MODULE, Version.unknownVersion());
 

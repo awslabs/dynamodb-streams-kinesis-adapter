@@ -24,6 +24,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorRequestAdapter;
 import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
 
 public class GetShardIteratorRequestAdapterTest {

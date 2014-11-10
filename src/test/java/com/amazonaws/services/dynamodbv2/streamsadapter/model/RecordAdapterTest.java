@@ -30,10 +30,12 @@ import com.amazonaws.services.dynamodbv2.model.OperationType;
 import com.amazonaws.services.dynamodbv2.model.Record;
 import com.amazonaws.services.dynamodbv2.model.StreamRecord;
 import com.amazonaws.services.dynamodbv2.model.StreamViewType;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordObjectMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class RecordAdapterTest {
-    private static final ObjectMapper MAPPER = new DynamoDBStreamsObjectMapper();
+    private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
     private final String TEST_STRING = "TestString";
 

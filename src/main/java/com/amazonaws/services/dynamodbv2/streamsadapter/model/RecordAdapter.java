@@ -26,18 +26,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class RecordAdapter extends Record {
 
-    public static final String charSetName = "UTF-8";
+    public static final Charset defaultCharset = Charset.forName("UTF-8");
 
-    private static final ObjectMapper MAPPER = new DynamoDBStreamsObjectMapper();
+    private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
     private com.amazonaws.services.dynamodbv2.model.Record internalRecord;
 
     private java.nio.ByteBuffer data;
 
     /**
-     * Constructs a new record using a Streams object.
+     * Constructs a new record using a DynamoDBStreams object.
      *
-     * @param record Instance of Streams Record
+     * @param record Instance of DynamoDBStreams Record
      */
     public RecordAdapter(com.amazonaws.services.dynamodbv2.model.Record record) throws IOException {
         internalRecord = record;
@@ -46,19 +46,18 @@ public class RecordAdapter extends Record {
 
     private void serializeData() throws IOException {
         String json = MAPPER.writeValueAsString(internalRecord);
-        Charset utf8 = Charset.forName(charSetName);
-        data = java.nio.ByteBuffer.wrap(json.getBytes(utf8));
+        data = java.nio.ByteBuffer.wrap(json.getBytes(defaultCharset));
     }
 
     /**
-     * @return The underlying Streams object
+     * @return The underlying DynamoDBStreams object
      */
     public com.amazonaws.services.dynamodbv2.model.Record getInternalObject() {
         return internalRecord;
     }
 
     /**
-     * @return The unique identifier for the record in the DynamoDB Stream.
+     * @return The unique identifier for the record in the DynamoDB stream.
      */
     @Override
     public String getSequenceNumber() {
@@ -76,7 +75,7 @@ public class RecordAdapter extends Record {
     }
 
     /**
-     * @return The data blob. Contains the update view type, type of the operation
+     * @return The data blob. Contains the stream view type, type of the operation
      *          performed, key set, and optionally the old and new attribute values.
      */
     @Override
@@ -94,6 +93,9 @@ public class RecordAdapter extends Record {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Jackson ObjectMapper requires a valid return value for serialization.
+     */
     @Override
     public String getPartitionKey() {
         return null;

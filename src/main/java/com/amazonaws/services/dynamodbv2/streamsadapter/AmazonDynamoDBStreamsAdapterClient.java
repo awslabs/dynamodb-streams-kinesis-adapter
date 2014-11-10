@@ -14,6 +14,9 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -24,6 +27,20 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClient;
+import com.amazonaws.services.dynamodbv2.model.ExpiredIteratorException;
+import com.amazonaws.services.dynamodbv2.model.LimitExceededException;
+import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
+import com.amazonaws.services.dynamodbv2.model.Shard;
+import com.amazonaws.services.dynamodbv2.model.StreamDescription;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.DescribeStreamRequestAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.DescribeStreamResultAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsRequestAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsResultAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorRequestAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorResultAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsRequestAdapter;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsResultAdapter;
 import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.model.AddTagsToStreamRequest;
 import com.amazonaws.services.kinesis.model.CreateStreamRequest;
@@ -44,23 +61,19 @@ import com.amazonaws.services.kinesis.model.PutRecordResult;
 import com.amazonaws.services.kinesis.model.RemoveTagsFromStreamRequest;
 import com.amazonaws.services.kinesis.model.SplitShardRequest;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClient;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.DescribeStreamRequestAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.DescribeStreamResultAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsRequestAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsResultAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorRequestAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorResultAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsRequestAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsResultAdapter;
-
 /**
  * Client for accessing DynamoDB Streams using the
  * Amazon Kinesis interface.
  */
 public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
-    
+
     private static final Log LOG = LogFactory.getLog(AmazonDynamoDBStreamsAdapterClient.class);
+
+    /*
+     * The maximum number of records to return in a single getRecords call.
+     */
+    private final Integer GET_RECORDS_LIMIT = 1000;
+
     private AmazonDynamoDBStreamsClient internalClient;
 
     /**
@@ -153,7 +166,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
     /*
      * Constructor used for testing.
      */
-    public AmazonDynamoDBStreamsAdapterClient(AmazonDynamoDBStreamsClient client) {
+    AmazonDynamoDBStreamsAdapterClient(AmazonDynamoDBStreamsClient client) {
         internalClient = client;
     }
 
@@ -166,12 +179,14 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
     public void setEndpoint(String endpoint) {
         internalClient.setEndpoint(endpoint);
     }
-    
+
     /**
      * Overrides the default endpoint for this client.
      * Callers can use this method to control which AWS region they want to work with.
      *
      * @param endpoint The region specific AWS endpoint this client will communicate with.
+     * @param serviceName This parameter is ignored.
+     * @param regionId The ID of the region in which this service resides.
      */
     public void setEndpoint(String endpoint, String serviceName, String regionId) {
         internalClient.setEndpoint(endpoint, serviceName, regionId);
@@ -186,6 +201,10 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
         internalClient.setServiceNameIntern(serviceName);
     }
 
+    /**
+     * Sets the regional endpoint for this client's service calls. Callers can use this
+     * method to control which AWS region they want to work with.
+     */
     public void setRegion(Region region) {
         internalClient.setRegion(region);
     }
@@ -198,9 +217,75 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      */
     public DescribeStreamResult describeStream(DescribeStreamRequest describeStreamRequest) {
         DescribeStreamRequestAdapter requestAdapter = new DescribeStreamRequestAdapter(describeStreamRequest);
-        com.amazonaws.services.dynamodbv2.model.DescribeStreamResult result =
-                internalClient.describeStream(requestAdapter);
+        com.amazonaws.services.dynamodbv2.model.DescribeStreamResult result;
+        try {
+            result = internalClient.describeStream(requestAdapter);
+        } catch(ResourceNotFoundException e) {
+            LOG.error(e);
+            throw new com.amazonaws.services.kinesis.model.ResourceNotFoundException(e.getMessage());
+        }
+        if(result.getStreamDescription().getStreamStatus().equals("DISABLED")) {
+            // FIXME short-term solution
+            // KCL does not currently support the concept of disabled streams. If there
+            // are no active shards (i.e. EndingSequenceNumber not null), then KCL will
+            // not create leases and will not process any shards in that stream. As a
+            // short-term solution, we feign active shards by setting the ending
+            // sequence number of all leaf nodes in the shard tree to null.
+            List<Shard> allShards = getAllShardsForDisabledStream(result);
+            markLeafShardsAsActive(allShards);
+            StreamDescription newStreamDescription = new StreamDescription()
+                .withShards(allShards)
+                .withLastEvaluatedShardId(null)
+                .withCreationRequestDateTime(result.getStreamDescription().getCreationRequestDateTime())
+                .withKeySchema(result.getStreamDescription().getKeySchema())
+                .withStreamARN(result.getStreamDescription().getStreamARN())
+                .withStreamStatus(result.getStreamDescription().getStreamStatus())
+                .withStreamId(result.getStreamDescription().getStreamId())
+                .withTableName(result.getStreamDescription().getTableName())
+                .withStreamViewType(result.getStreamDescription().getStreamViewType());
+            result = new com.amazonaws.services.dynamodbv2.model.DescribeStreamResult()
+                .withStreamDescription(newStreamDescription);
+        }
         return new DescribeStreamResultAdapter(result);
+    }
+
+    private List<Shard> getAllShardsForDisabledStream(com.amazonaws.services.dynamodbv2.model.DescribeStreamResult initialResult) {
+        List<Shard> shards = new ArrayList<Shard>();
+        shards.addAll(initialResult.getStreamDescription().getShards());
+
+        com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest request;
+        com.amazonaws.services.dynamodbv2.model.DescribeStreamResult result = initialResult;
+        // Allowing KCL to paginate calls will not allow us to correctly determine the
+        // leaf nodes. In order to avoid pagination issues when feigning shard activity, we collect all
+        // shards in the adapter and return them at once.
+        while(result.getStreamDescription().getLastEvaluatedShardId() != null) {
+            request = new com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest()
+                .withStreamId(result.getStreamDescription().getStreamId())
+                .withExclusiveStartShardId(result.getStreamDescription().getLastEvaluatedShardId());
+            try {
+                result = internalClient.describeStream(request);
+            } catch(ResourceNotFoundException e) {
+                LOG.error(e);
+                throw new com.amazonaws.services.kinesis.model.ResourceNotFoundException(e.getMessage());
+            }
+            shards.addAll(result.getStreamDescription().getShards());
+        }
+        return shards;
+    }
+
+    private void markLeafShardsAsActive(List<Shard> shards) {
+        List<String> parentShardIds = new ArrayList<String>();
+        for(Shard shard : shards) {
+            if(shard.getParentShardId() != null) {
+                parentShardIds.add(shard.getParentShardId());
+            }
+        }
+        for(Shard shard : shards) {
+            // Feign shard activity by modifying leaf shards
+            if(!parentShardIds.contains(shard.getShardId())) {
+                shard.getSequenceNumberRange().setEndingSequenceNumber(null);
+            }
+        }
     }
 
     /**
@@ -209,7 +294,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      *          for use with the AmazonKinesis model.
      */
     public DescribeStreamResult describeStream(String streamName) {
-        return this.describeStream(streamName, new Integer(1000)/*default limit for streams*/, null/*exclusiveStartShardId*/);
+        return this.describeStream(streamName, null/*limit*/, null/*exclusiveStartShardId*/);
     }
 
     /**
@@ -220,7 +305,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      *          for use with the AmazonKinesis model.
      */
     public DescribeStreamResult describeStream(String streamName, String exclusiveStartShardId) {
-        return this.describeStream(streamName, new Integer(1000)/*default limit for streams*/, exclusiveStartShardId);
+        return this.describeStream(streamName, null/*limit*/, exclusiveStartShardId);
     }
 
     /**
@@ -247,9 +332,14 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      */
     public GetShardIteratorResult getShardIterator(GetShardIteratorRequest getShardIteratorRequest) {
         GetShardIteratorRequestAdapter requestAdapter = new GetShardIteratorRequestAdapter(getShardIteratorRequest);
-        com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult result =
-                internalClient.getShardIterator(requestAdapter);
-        return new GetShardIteratorResultAdapter(result);
+        try {
+            com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult result =
+                    internalClient.getShardIterator(requestAdapter);
+            return new GetShardIteratorResultAdapter(result);
+        } catch(ResourceNotFoundException e) {
+            LOG.error(e);
+            throw new com.amazonaws.services.kinesis.model.ResourceNotFoundException(e.getMessage());
+        }
     }
 
     /**
@@ -306,13 +396,24 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      *          with the AmazonKinesis model.
      */
     public GetRecordsResult getRecords(GetRecordsRequest getRecordsRequest) {
-        if (getRecordsRequest.getLimit() != null && getRecordsRequest.getLimit() > 1000) {
-            getRecordsRequest.setLimit(1000);
+        if (getRecordsRequest.getLimit() != null && getRecordsRequest.getLimit() > GET_RECORDS_LIMIT) {
+            getRecordsRequest.setLimit(GET_RECORDS_LIMIT);
         }
         GetRecordsRequestAdapter requestAdapter = new GetRecordsRequestAdapter(getRecordsRequest);
-        com.amazonaws.services.dynamodbv2.model.GetRecordsResult result =
-                internalClient.getRecords(requestAdapter);
-        return new GetRecordsResultAdapter(result);
+        try {
+            com.amazonaws.services.dynamodbv2.model.GetRecordsResult result =
+                    internalClient.getRecords(requestAdapter);
+            return new GetRecordsResultAdapter(result);
+        } catch(ExpiredIteratorException e) {
+            LOG.error(e);
+            throw new com.amazonaws.services.kinesis.model.ExpiredIteratorException(e.getMessage());
+        } catch(ResourceNotFoundException e) {
+            LOG.error(e);
+            throw new com.amazonaws.services.kinesis.model.ResourceNotFoundException(e.getMessage());
+        } catch(LimitExceededException e) {
+            LOG.error(e);
+            throw new com.amazonaws.services.kinesis.model.LimitExceededException(e.getMessage());
+        }
     }
 
     // Not supported by the underlying Streams model
@@ -353,9 +454,15 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      */
     public ListStreamsResult listStreams(ListStreamsRequest listStreamsRequest) {
         ListStreamsRequestAdapter requestAdapter = new ListStreamsRequestAdapter(listStreamsRequest);
-        com.amazonaws.services.dynamodbv2.model.ListStreamsResult result =
-                internalClient.listStreams(requestAdapter);
-        return new ListStreamsResultAdapter(result);
+        try {
+            com.amazonaws.services.dynamodbv2.model.ListStreamsResult result =
+                    internalClient.listStreams(requestAdapter);
+            return new ListStreamsResultAdapter(result);
+        } catch(ResourceNotFoundException e) {
+            LOG.error(e);
+            throw new com.amazonaws.services.kinesis.model.ResourceNotFoundException(e.getMessage());
+        }
+
     }
 
     /**
@@ -363,7 +470,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      *          the AmazonKinesis model.
      */
     public ListStreamsResult listStreams() {
-        return this.listStreams(new Integer(1000)/*default limit for streams*/, null/*exclusiveStartStreamName*/);
+        return this.listStreams(null/*limit*/, null/*exclusiveStartStreamName*/);
     }
 
     /**
@@ -372,7 +479,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      *          the AmazonKinesis model.
      */
     public ListStreamsResult listStreams(String exclusiveStartStreamName) {
-        return this.listStreams(new Integer(1000)/*default limit for streams*/, exclusiveStartStreamName);
+        return this.listStreams(null/*limit*/, exclusiveStartStreamName);
     }
 
     /**

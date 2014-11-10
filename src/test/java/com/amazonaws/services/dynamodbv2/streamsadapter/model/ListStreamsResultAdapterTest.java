@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.ListStreamsResult;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsResultAdapter;
 
 public class ListStreamsResultAdapterTest {
     private final String TEST_STRING = "TestString";

@@ -14,6 +14,9 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.amazonaws.services.kinesis.model.Shard;
 import com.amazonaws.services.kinesis.model.StreamDescription;
 import com.amazonaws.services.kinesis.model.StreamStatus;
@@ -25,7 +28,7 @@ public class StreamDescriptionAdapter extends StreamDescription {
 
     private com.amazonaws.services.dynamodbv2.model.StreamDescription internalDescription;
 
-    private java.util.List<Shard> shards;
+    private List<Shard> shards;
 
     /**
      * Constructs a new description using a DynamoDBStreams object.
@@ -34,7 +37,7 @@ public class StreamDescriptionAdapter extends StreamDescription {
      */
     public StreamDescriptionAdapter(com.amazonaws.services.dynamodbv2.model.StreamDescription streamDescription) {
         internalDescription = streamDescription;
-        shards = new java.util.ArrayList<Shard>();
+        shards = new ArrayList<Shard>();
         for(com.amazonaws.services.dynamodbv2.model.Shard shard : streamDescription.getShards()) {
             shards.add(new ShardAdapter(shard));
         }
@@ -89,11 +92,14 @@ public class StreamDescriptionAdapter extends StreamDescription {
         case ENABLING :
             status = StreamStatus.CREATING.toString();
             break;
+        // streams are valid for 24hrs after disabling and
+        // will continue to support read operations
         case DISABLED :
-            status = StreamStatus.DELETING.toString();
+            status = StreamStatus.ACTIVE.toString();
             break;
         case DISABLING :
-            status = StreamStatus.DELETING.toString();
+            status = StreamStatus.ACTIVE.toString();
+            break;
         }
         return status;
     }
@@ -122,7 +128,7 @@ public class StreamDescriptionAdapter extends StreamDescription {
      * @return The shards that comprise the stream.
      */
     @Override
-    public java.util.List<Shard> getShards() {
+    public List<Shard> getShards() {
         return shards;
     }
 

@@ -19,7 +19,8 @@ import com.amazonaws.services.kinesis.model.SequenceNumberRange;
 import com.amazonaws.services.kinesis.model.Shard;
 
 /**
- * A uniquely identified group of data records in a DynamoDB Stream.
+ * A uniquely identified group of data records in a DynamoDB
+ * stream.
  */
 public class ShardAdapter extends Shard {
 
@@ -35,7 +36,7 @@ public class ShardAdapter extends Shard {
     }
 
     /**
-     * @return The unique identifier of the shard within the DynamoDB Stream.
+     * @return The unique identifier of the shard within the DynamoDB stream.
      */
     @Override
     public String getShardId() {

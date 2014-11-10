@@ -22,8 +22,6 @@ import com.amazonaws.services.kinesis.model.StreamDescription;
  */
 public class DescribeStreamResultAdapter extends DescribeStreamResult {
 
-    private com.amazonaws.services.dynamodbv2.model.DescribeStreamResult internalResult;
-
     private StreamDescription streamDescription;
 
     /**
@@ -32,7 +30,6 @@ public class DescribeStreamResultAdapter extends DescribeStreamResult {
      * @param result Instance of DynamoDBStreams DescribeStreamResult
      */
     public DescribeStreamResultAdapter(com.amazonaws.services.dynamodbv2.model.DescribeStreamResult result) {
-        internalResult = result;
         streamDescription = new StreamDescriptionAdapter(result.getStreamDescription());
     }
 

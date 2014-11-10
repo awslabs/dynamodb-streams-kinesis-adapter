@@ -23,6 +23,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsRequestAdapter;
 import com.amazonaws.services.kinesis.model.ListStreamsRequest;
 
 public class ListStreamsRequestAdapterTest {

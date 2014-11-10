@@ -24,6 +24,7 @@ import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.DescribeStreamResult;
 import com.amazonaws.services.dynamodbv2.model.StreamDescription;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.DescribeStreamResultAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.StreamDescriptionAdapter;
 
 public class DescribeStreamResultAdapterTest {
