@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,40 +15,59 @@
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import com.amazonaws.services.kinesis.model.Record;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * A single update notification of a DynamoDB Stream, adapted for use
  * with the Amazon Kinesis model.
+ *
+ * This class is designed to be used in a single thread only.
  */
 public class RecordAdapter extends Record {
+
+    private static Log LOG = LogFactory.getLog(RecordAdapter.class);
 
     public static final Charset defaultCharset = Charset.forName("UTF-8");
 
     private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
-    private com.amazonaws.services.dynamodbv2.model.Record internalRecord;
+    private final com.amazonaws.services.dynamodbv2.model.Record internalRecord;
 
-    private java.nio.ByteBuffer data;
+    private ByteBuffer data;
+
+    private boolean generateDataBytes;
 
     /**
      * Constructs a new record using a DynamoDBStreams object.
      *
      * @param record Instance of DynamoDBStreams Record
      */
-    public RecordAdapter(com.amazonaws.services.dynamodbv2.model.Record record) throws IOException {
+    public RecordAdapter(com.amazonaws.services.dynamodbv2.model.Record record) {
+        this(record, true);
+    }
+
+    /**
+     * Constructor for internal use
+     * @param record
+     * @param generateDataBytes Whether or not to generate the ByteBuffer returned by getData().  KCL
+     * uses the bytes returned by getData to generate throughput metrics.  If these metrics are not needed then
+     * choosing to not generate this data results in memory and CPU savings.  If this value is true then
+     * the data will be generated.  If false, getData() will return an empty ByteBuffer.
+     * @throws IOException
+     */
+    RecordAdapter(com.amazonaws.services.dynamodbv2.model.Record record, boolean generateDataBytes) {
         internalRecord = record;
-        serializeData();
+        this.generateDataBytes = generateDataBytes;
     }
-
-    private void serializeData() throws IOException {
-        String json = MAPPER.writeValueAsString(internalRecord);
-        data = java.nio.ByteBuffer.wrap(json.getBytes(defaultCharset));
-    }
-
     /**
      * @return The underlying DynamoDBStreams object
      */
@@ -75,11 +94,28 @@ public class RecordAdapter extends Record {
     }
 
     /**
-     * @return The data blob. Contains the stream view type, type of the operation
-     *          performed, key set, and optionally the old and new attribute values.
+     * This method returns JSON serialized {@link Record} object. However, This is not the best to use the object
+     * It is recommended to get an object using {@link #getInternalObject()} and cast appropriately.
+     *
+     * @return JSON serialization of {@link Record} object. JSON contains only non-null
+     * fields of {@link com.amazonaws.services.dynamodbv2.model.Record}. It returns null if serialization fails.
      */
     @Override
-    public java.nio.ByteBuffer getData() {
+    public ByteBuffer getData() {
+        if(data == null) {
+            if (generateDataBytes) {
+                try {
+                    data = ByteBuffer.wrap(MAPPER.writeValueAsString(internalRecord).getBytes(defaultCharset));
+                }
+                catch (JsonProcessingException e) {
+                    final String errorMessage = "Failed to serialize stream record to JSON";
+                    LOG.error(errorMessage, e);
+                    throw new RuntimeException(errorMessage, e);
+                }
+            } else {
+                data = ByteBuffer.wrap(new byte[0]);
+            }
+        }
         return data;
     }
 

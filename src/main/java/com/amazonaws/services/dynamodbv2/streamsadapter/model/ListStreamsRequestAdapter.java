@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -36,25 +36,25 @@ public class ListStreamsRequestAdapter extends ListStreamsRequest {
      * @return The name of the stream to start the list with.
      */
     @Override
-    public String getExclusiveStartStreamId() {
+    public String getExclusiveStartStreamArn() {
         return internalRequest.getExclusiveStartStreamName();
     }
 
     /**
-     * @param exclusiveStartStreamId The name of the stream to start the list with.
+     * @param exclusiveStartStreamArn The name of the stream to start the list with.
      */
     @Override
-    public void setExclusiveStartStreamId(String exclusiveStartStreamId) {
-        internalRequest.setExclusiveStartStreamName(exclusiveStartStreamId);
+    public void setExclusiveStartStreamArn(String exclusiveStartStreamArn) {
+        internalRequest.setExclusiveStartStreamName(exclusiveStartStreamArn);
     }
 
     /**
-     * @param exclusiveStartStreamId The name of the stream to start the list with.
+     * @param exclusiveStartStreamArn The name of the stream to start the list with.
      * @return A reference to this updated object so that method calls can be chained together.
      */
     @Override
-    public ListStreamsRequest withExclusiveStartStreamId(String exclusiveStartStreamId) {
-        this.setExclusiveStartStreamId(exclusiveStartStreamId);
+    public ListStreamsRequest withExclusiveStartStreamArn(String exclusiveStartStreamArn) {
+        this.setExclusiveStartStreamArn(exclusiveStartStreamArn);
         return this;
     }
 

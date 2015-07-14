@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,9 +14,12 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
-import static org.mockito.Mockito.when;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.when;
+
+import java.util.Collection;
+import java.util.Collections;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -25,8 +28,6 @@ import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.GetRecordsResult;
 import com.amazonaws.services.dynamodbv2.model.Record;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsResultAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
 
 public class GetRecordsResultAdapterTest {
     private final String TEST_STRING = "TestString";
@@ -93,6 +94,12 @@ public class GetRecordsResultAdapterTest {
     @Test(expected=UnsupportedOperationException.class)
     public void testWithRecords() {
         adapter.withRecords(null, null);
+    }
+
+    @Test(expected=UnsupportedOperationException.class)
+    public void testWithRecords2() {
+        Collection<com.amazonaws.services.kinesis.model.Record> records = Collections.emptyList();
+        adapter.withRecords(records);
     }
 
     @Test

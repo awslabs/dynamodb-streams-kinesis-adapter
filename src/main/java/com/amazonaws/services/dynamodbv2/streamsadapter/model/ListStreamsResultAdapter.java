@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
  * permissions and limitations under the License.
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import com.amazonaws.services.kinesis.model.ListStreamsResult;
 
@@ -38,7 +41,12 @@ public class ListStreamsResultAdapter extends ListStreamsResult {
      */
     @Override
     public java.util.List<String> getStreamNames() {
-        return internalResult.getStreamIds();
+        List<com.amazonaws.services.dynamodbv2.model.Stream> streams = internalResult.getStreams();
+        List<String> streamArns = new ArrayList<>(streams.size());
+        for(com.amazonaws.services.dynamodbv2.model.Stream stream : streams) {
+            streamArns.add(stream.getStreamArn());
+        }
+        return streamArns;
     }
 
     @Override
@@ -61,7 +69,7 @@ public class ListStreamsResultAdapter extends ListStreamsResult {
      */
     @Override
     public Boolean isHasMoreStreams() {
-        return internalResult.getLastEvaluatedStreamId() != null;
+        return internalResult.getLastEvaluatedStreamArn() != null;
     }
 
     /**
@@ -69,7 +77,7 @@ public class ListStreamsResultAdapter extends ListStreamsResult {
      */
     @Override
     public Boolean getHasMoreStreams() {
-        return internalResult.getLastEvaluatedStreamId() != null;
+        return internalResult.getLastEvaluatedStreamArn() != null;
     }
 
     @Override

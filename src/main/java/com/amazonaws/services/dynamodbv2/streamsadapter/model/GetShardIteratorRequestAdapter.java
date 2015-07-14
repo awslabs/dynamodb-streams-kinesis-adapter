@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -34,28 +34,28 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
     }
 
     /**
-     * @return The ID of the stream.
+     * @return The ARN of the stream.
      */
     @Override
-    public String getStreamId() {
+    public String getStreamArn() {
         return internalRequest.getStreamName();
     }
 
     /**
-     * @param streamId The ID of the stream.
+     * @param streamArn The ARN of the stream.
      */
     @Override
-    public void setStreamId(String streamId) {
-        internalRequest.setStreamName(streamId);
+    public void setStreamArn(String streamArn) {
+        internalRequest.setStreamName(streamArn);
     }
 
     /**
-     * @param streamId The ID of the stream.
+     * @param streamArn The ARN of the stream.
      * @return Returns a reference to this object so that method calls can be chained together.
      */
     @Override
-    public GetShardIteratorRequest withStreamId(String streamId) {
-        internalRequest.withStreamName(streamId);
+    public GetShardIteratorRequest withStreamArn(String streamArn) {
+        internalRequest.withStreamName(streamArn);
         return this;
     }
 

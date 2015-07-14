@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import com.amazonaws.services.kinesis.model.StreamStatus;
  */
 public class StreamDescriptionAdapter extends StreamDescription {
 
-    private com.amazonaws.services.dynamodbv2.model.StreamDescription internalDescription;
+    private final com.amazonaws.services.dynamodbv2.model.StreamDescription internalDescription;
 
-    private List<Shard> shards;
+    private final List<Shard> shards;
 
     /**
      * Constructs a new description using a DynamoDBStreams object.
@@ -44,11 +44,18 @@ public class StreamDescriptionAdapter extends StreamDescription {
     }
 
     /**
-     * @return The ID of the stream being described.
+     * @return The underlying DynamoDBStreams object
+     */
+    public com.amazonaws.services.dynamodbv2.model.StreamDescription getInternalObject() {
+        return internalDescription;
+    }
+
+    /**
+     * @return The name of the stream being described.
      */
     @Override
     public String getStreamName() {
-        return internalDescription.getStreamId();
+        return internalDescription.getStreamArn();
     }
 
     @Override
@@ -66,7 +73,7 @@ public class StreamDescriptionAdapter extends StreamDescription {
      */
     @Override
     public String getStreamARN() {
-        return internalDescription.getStreamARN();
+        return internalDescription.getStreamArn();
     }
 
     @Override

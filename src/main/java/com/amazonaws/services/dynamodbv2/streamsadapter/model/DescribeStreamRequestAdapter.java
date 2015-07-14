@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -85,29 +85,29 @@ public class DescribeStreamRequestAdapter extends DescribeStreamRequest {
     }
 
     /**
-     * @return The ID of the stream to describe.
+     * @return The ARN of the stream to describe.
      */
     @Override
-    public String getStreamId() {
+    public String getStreamArn() {
         return internalRequest.getStreamName();
     }
 
     /**
-     * @param streamId The ID of the stream to describe.
+     * @param streamArn The ARN of the stream to describe.
      */
     @Override
-    public void setStreamId(String streamId) {
-        internalRequest.setStreamName(streamId);
+    public void setStreamArn(String streamArn) {
+        internalRequest.setStreamName(streamArn);
     }
 
     /**
      *
-     * @param streamId
+     * @param streamArn
      * @return A reference to this updated object so that method calls can be chained together.
      */
     @Override
-    public DescribeStreamRequest withStreamId(String streamId) {
-        internalRequest.setStreamName(streamId);
+    public DescribeStreamRequest withStreamArn(String streamArn) {
+        internalRequest.setStreamName(streamArn);
         return this;
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
-import static org.mockito.Mockito.when;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.when;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -23,7 +23,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorResultAdapter;
 
 public class GetShardIteratorResultAdapterTest {
     private final String TEST_STRING = "TestString";

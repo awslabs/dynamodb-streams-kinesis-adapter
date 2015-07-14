@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,10 +14,6 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
-import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import com.amazonaws.services.kinesis.model.GetRecordsResult;
 import com.amazonaws.services.kinesis.model.Record;
 
@@ -25,8 +21,6 @@ import com.amazonaws.services.kinesis.model.Record;
  * Represents the output of a GetRecords operation.
  */
 public class GetRecordsResultAdapter extends GetRecordsResult {
-
-    private static Logger LOGGER = Logger.getLogger(GetRecordsResultAdapter.class.getName());
 
     private com.amazonaws.services.dynamodbv2.model.GetRecordsResult internalResult;
 
@@ -38,15 +32,23 @@ public class GetRecordsResultAdapter extends GetRecordsResult {
      * @param result Instance of DynamoDBStreams GetRecordsResult
      */
     public GetRecordsResultAdapter(com.amazonaws.services.dynamodbv2.model.GetRecordsResult result) {
+        this(result, true);
+    }
+ 
+    /**
+     * Constructs a new result using a DynamoDBStreams object.
+     *
+     * @param result Instance of DynamoDBStreams GetRecordsResult
+     * @param generateRecordDataBytes Whether or not RecordAdapters should generate the ByteBuffer returned by getData().  KCL
+     * uses the bytes returned by getData to generate throughput metrics.  If these metrics are not needed then
+     * choosing to not generate this data results in memory and CPU savings.
+     */
+    public GetRecordsResultAdapter(com.amazonaws.services.dynamodbv2.model.GetRecordsResult result, boolean generateRecordDataBytes) {
         internalResult = result;
         records = new java.util.ArrayList<Record>();
         if (result.getRecords() != null) {
             for(com.amazonaws.services.dynamodbv2.model.Record record : result.getRecords()) {
-                try {
-                    records.add(new RecordAdapter(record));
-                } catch (IOException e) {
-                    LOGGER.log(Level.WARNING, "Could not process record", e);
-                }
+                records.add(new RecordAdapter(record, generateRecordDataBytes));
             }
         }
     }

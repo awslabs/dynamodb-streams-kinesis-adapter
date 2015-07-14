@@ -2,11 +2,11 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.amazonaws.services.dynamodbv2</groupId>
+    <groupId>com.amazonaws</groupId>
     <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
     <packaging>jar</packaging>
     <name>DynamoDB Streams Adapter for Java</name>
-    <version>0.1.0</version>
+    <version>1.0.0</version>
     <description>The DynamoDB Streams Adapter implements the AmazonKinesis interface so that your application can use KCL to consume and process data from a DynamoDB stream.</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
@@ -23,7 +23,8 @@
     </licenses>
 
     <properties>
-        <aws-java-sdk.version>1.9.4a-preview</aws-java-sdk.version>
+        <aws-java-sdk.version>[1.10.5.1, 2.0.0)</aws-java-sdk.version>
+        <gpg.skip>true</gpg.skip>
     </properties>
 
     <dependencies>
@@ -37,7 +38,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>amazon-kinesis-client</artifactId>
-            <version>1.2.0</version>
+            <version>1.3.0</version>
         </dependency>
 
         <dependency>
@@ -47,15 +48,29 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.3.2</version>
+        </dependency>
+
+        <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
             <version>1.1.3</version>
         </dependency>
 
         <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
-            <version>1.9.5</version>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-module-junit4</artifactId>
+            <version>1.6.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-api-mockito</artifactId>
+            <version>1.6.2</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -68,12 +83,21 @@
 
     <developers>
         <developer>
-            <id>amazonwebservices</id>
-            <organization>Amazon Web Services</organization>
-            <organizationUrl>https://aws.amazon.com</organizationUrl>
-            <roles>
-                <role>developer</role>
-            </roles>
+            <name>Holger Jansohn</name>
+            <email>holgs@live.ca</email>
+            <url>https://www.linkedin.com/profile/view?id=345064626</url>
+        </developer>
+        <developer>
+            <name>Gaurav Saxena</name>
+            <email>gssaxena@amazon.com</email>
+        </developer>
+        <developer>
+            <name>Ben Schwartz</name>
+            <email>schwar@amazon.com</email>
+        </developer>
+        <developer>
+            <name>Lei Ye</name>
+            <email>leiye@amazon.com</email>
         </developer>
     </developers>
 
@@ -91,7 +115,6 @@
                 </plugin>
             </plugins>
         </pluginManagement>
-        
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -103,6 +126,9 @@
                         <goals>
                             <goal>sign</goal>
                         </goals>
+                        <configuration>
+                            <skip>${gpg.skip}</skip>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

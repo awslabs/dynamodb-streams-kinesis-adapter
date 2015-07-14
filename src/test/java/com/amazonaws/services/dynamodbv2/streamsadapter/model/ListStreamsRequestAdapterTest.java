@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsRequestAdapter;
 import com.amazonaws.services.kinesis.model.ListStreamsRequest;
 
 public class ListStreamsRequestAdapterTest {
@@ -43,21 +42,21 @@ public class ListStreamsRequestAdapterTest {
     }
 
     @Test
-    public void testGetExclusiveStartStreamId() {
+    public void testGetExclusiveStartStreamArn() {
         when(mockRequest.getExclusiveStartStreamName()).thenReturn(TEST_STRING);
-        String actual = adapter.getExclusiveStartStreamId();
+        String actual = adapter.getExclusiveStartStreamArn();
         assertEquals(TEST_STRING, actual);
     }
 
     @Test
-    public void testSetExclusiveStartStreamId() {
-        adapter.setExclusiveStartStreamId(TEST_STRING);
+    public void testSetExclusiveStartStreamArn() {
+        adapter.setExclusiveStartStreamArn(TEST_STRING);
         verify(mockRequest).setExclusiveStartStreamName(TEST_STRING);
     }
 
     @Test
-    public void testWithExclusiveStartStreamId() {
-        Object actual = adapter.withExclusiveStartStreamId(TEST_STRING);
+    public void testWithExclusiveStartStreamArn() {
+        Object actual = adapter.withExclusiveStartStreamArn(TEST_STRING);
         assertEquals(adapter, actual);
     }
 
@@ -99,7 +98,7 @@ public class ListStreamsRequestAdapterTest {
     public void testRealData() {
         ListStreamsRequest request = createRequest();
         ListStreamsRequestAdapter requestAdapter = new ListStreamsRequestAdapter(request);
-        assertEquals(request.getExclusiveStartStreamName(), requestAdapter.getExclusiveStartStreamId());
+        assertEquals(request.getExclusiveStartStreamName(), requestAdapter.getExclusiveStartStreamArn());
         assertEquals(request.getLimit(), requestAdapter.getLimit());
     }
 

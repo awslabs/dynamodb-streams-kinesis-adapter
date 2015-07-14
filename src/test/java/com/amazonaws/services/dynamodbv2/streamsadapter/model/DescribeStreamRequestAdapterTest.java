@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,17 +14,16 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.when;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.DescribeStreamRequestAdapter;
 import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 
 public class DescribeStreamRequestAdapterTest {
@@ -81,21 +80,21 @@ public class DescribeStreamRequestAdapterTest {
     }
 
     @Test
-    public void testGetStreamId() {
+    public void testGetStreamArn() {
         when(mockRequest.getStreamName()).thenReturn(TEST_STRING);
-        String actual = adapter.getStreamId();
+        String actual = adapter.getStreamArn();
         assertEquals(TEST_STRING, actual);
     }
 
     @Test
-    public void testSetStreamId() {
-        adapter.setStreamId(TEST_STRING);
+    public void testSetStreamArn() {
+        adapter.setStreamArn(TEST_STRING);
         verify(mockRequest, times(1)).setStreamName(TEST_STRING);
     }
 
     @Test
-    public void testWithStreamId() {
-        Object actual = adapter.withStreamId(TEST_STRING);
+    public void testWithStreamArn() {
+        Object actual = adapter.withStreamArn(TEST_STRING);
         assertEquals(adapter, actual);
     }
 
@@ -105,7 +104,7 @@ public class DescribeStreamRequestAdapterTest {
         DescribeStreamRequestAdapter requestAdapter = new DescribeStreamRequestAdapter(request);
         assertEquals(request.getExclusiveStartShardId(), requestAdapter.getExclusiveStartShardId());
         assertEquals(request.getLimit(), requestAdapter.getLimit());
-        assertEquals(request.getStreamName(), requestAdapter.getStreamId());
+        assertEquals(request.getStreamName(), requestAdapter.getStreamArn());
     }
 
     private DescribeStreamRequest createRequest() {
