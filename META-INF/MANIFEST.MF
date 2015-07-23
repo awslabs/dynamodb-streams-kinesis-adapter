@@ -6,4 +6,5 @@ Bundle-Version: 1.0.0
 Bundle-Vendor: Amazon Technologies, Inc
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Export-Package: com.amazonaws.services.dynamodbv2.streamsadapter,
+    com.amazonaws.services.dynamodbv2.streamsadapter.exceptions,
     com.amazonaws.services.dynamodbv2.streamsadapter.model

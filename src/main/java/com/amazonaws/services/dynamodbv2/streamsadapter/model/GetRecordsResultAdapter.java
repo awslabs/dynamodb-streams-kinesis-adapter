@@ -34,7 +34,7 @@ public class GetRecordsResultAdapter extends GetRecordsResult {
     public GetRecordsResultAdapter(com.amazonaws.services.dynamodbv2.model.GetRecordsResult result) {
         this(result, true);
     }
- 
+
     /**
      * Constructs a new result using a DynamoDBStreams object.
      *
