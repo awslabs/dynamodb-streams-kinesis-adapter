@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Amazon DynamoDB Streams Kinesis Adapter for Java
-Bundle-SymbolicName: com.amazonaws.services.dynamodbv2;singleton:=true
+Bundle-SymbolicName: com.amazonaws.dynamodb.streams.kinesis.adapter;singleton:=true
 Bundle-Version: 1.0.0
 Bundle-Vendor: Amazon Technologies, Inc
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
