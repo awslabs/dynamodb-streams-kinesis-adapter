@@ -589,4 +589,14 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
         assertEquals(expectedId, actualId);
     }
 
+    @Test (expected = UnsupportedOperationException.class)
+    public void testDescreaseStreamRetentionPeriod () {
+        adapterClient.decreaseStreamRetentionPeriod(null);
+    }
+
+    @Test (expected = UnsupportedOperationException.class)
+    public void testIncreaseStreamRetentionPeriod () {
+        adapterClient.increaseStreamRetentionPeriod(null);
+    }
+
 }

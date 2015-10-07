@@ -20,6 +20,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
@@ -46,6 +47,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsResultA
 import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.model.AddTagsToStreamRequest;
 import com.amazonaws.services.kinesis.model.CreateStreamRequest;
+import com.amazonaws.services.kinesis.model.DecreaseStreamRetentionPeriodRequest;
 import com.amazonaws.services.kinesis.model.DeleteStreamRequest;
 import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.DescribeStreamResult;
@@ -53,6 +55,7 @@ import com.amazonaws.services.kinesis.model.GetRecordsRequest;
 import com.amazonaws.services.kinesis.model.GetRecordsResult;
 import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
 import com.amazonaws.services.kinesis.model.GetShardIteratorResult;
+import com.amazonaws.services.kinesis.model.IncreaseStreamRetentionPeriodRequest;
 import com.amazonaws.services.kinesis.model.ListStreamsRequest;
 import com.amazonaws.services.kinesis.model.ListStreamsResult;
 import com.amazonaws.services.kinesis.model.ListTagsForStreamRequest;
@@ -638,5 +641,19 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
             throw new NullPointerException("skipRecordsBehavior cannot be null");
         }
         this.skipRecordsBehavior = skipRecordsBehavior;
+    }
+
+    // Not supported by the underlying Streams model
+    @Override
+    public void decreaseStreamRetentionPeriod(
+           DecreaseStreamRetentionPeriodRequest decreaseStreamRetentionPeriodRequest) {
+        throw new UnsupportedOperationException();
+    }
+
+    // Not supported by the underlying Streams model
+    @Override
+    public void increaseStreamRetentionPeriod(
+            IncreaseStreamRetentionPeriodRequest increaseStreamRetentionPeriodRequest) {
+        throw new UnsupportedOperationException();
     }
 }

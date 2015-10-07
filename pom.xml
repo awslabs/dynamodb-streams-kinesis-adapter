@@ -6,7 +6,7 @@
     <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
     <packaging>jar</packaging>
     <name>DynamoDB Streams Adapter for Java</name>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <description>The DynamoDB Streams Adapter implements the AmazonKinesis interface so that your application can use KCL to consume and process data from a DynamoDB stream.</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
