@@ -20,7 +20,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessor;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorCheckpointer;
@@ -31,11 +31,14 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
 
     private static final Log LOG = LogFactory.getLog(ReplicatingRecordProcessor.class);
 
-    private AmazonDynamoDBClient dynamoDBClient;
+    private AmazonDynamoDB dynamoDBClient;
     private String tableName;
-    private Integer checkpointCounter;
+    private Integer checkpointCounter = -1;
+    private Integer processRecordsCallCounter;
 
-    public ReplicatingRecordProcessor(AmazonDynamoDBClient dynamoDBClient, String tableName) {
+    public static int CHECKPOINT_BATCH_SIZE = 10;
+
+    public ReplicatingRecordProcessor(AmazonDynamoDB dynamoDBClient, String tableName) {
         this.dynamoDBClient = dynamoDBClient;
         this.tableName = tableName;
     }
@@ -43,11 +46,13 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
     @Override
     public void initialize(String shardId) {
         checkpointCounter = 0;
+        processRecordsCallCounter = 0;
     }
 
     @Override
     public void processRecords(List<Record> records,
             IRecordProcessorCheckpointer checkpointer) {
+        processRecordsCallCounter++;
         for(Record record : records) {
             String data = new String(record.getData().array(), Charset.forName("UTF-8"));
             LOG.info("Got record: " + data);
@@ -63,7 +68,7 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
                 }
             }
             checkpointCounter += 1;
-            if(checkpointCounter % 10 == 0) {
+            if(checkpointCounter % CHECKPOINT_BATCH_SIZE == 0) {
                 try {
                     checkpointer.checkpoint(record.getSequenceNumber());
                 } catch(Exception e) {
@@ -84,6 +89,14 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
                 e.printStackTrace();
             }
         }
+    }
+
+    public int getNumRecordsProcessed() {
+        return checkpointCounter;
+    }
+
+    public int getNumProcessRecordsCalls() {
+        return processRecordsCallCounter;
     }
 
 }

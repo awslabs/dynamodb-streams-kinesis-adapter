@@ -21,6 +21,22 @@ import com.amazonaws.services.dynamodbv2.model.ShardIteratorType;
  * Container for the parameters to the GetShardIterator operation.
  */
 public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
+    // Evaluate each ShardIteratorType toString() only once.
+    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_AT_SEQUENCE_NUMBER =
+        ShardIteratorType.AT_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_AFTER_SEQUENCE_NUMBER =
+        ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_LATEST = ShardIteratorType.LATEST.toString();
+    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_TRIM_HORIZON = ShardIteratorType.TRIM_HORIZON.toString();
+
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_AFTER_SEQUENCE_NUMBER =
+        com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_AT_SEQUENCE_NUMBER =
+        com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_LATEST =
+        com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_TRIM_HORIZON =
+        com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON.toString();
 
     private com.amazonaws.services.kinesis.model.GetShardIteratorRequest internalRequest;
 
@@ -129,7 +145,17 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
      */
     @Override
     public void setShardIteratorType(String shardIteratorType) {
-        this.setShardIteratorType(ShardIteratorType.fromValue(shardIteratorType));
+        if(SHARD_ITERATOR_TYPE_DYNAMODB_TRIM_HORIZON.equals(shardIteratorType)) {
+            internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_TRIM_HORIZON);
+        } else if(SHARD_ITERATOR_TYPE_DYNAMODB_LATEST.equals(shardIteratorType)) {
+            internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_LATEST);
+        } else if(SHARD_ITERATOR_TYPE_DYNAMODB_AT_SEQUENCE_NUMBER.equals(shardIteratorType)) {
+            internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_AT_SEQUENCE_NUMBER);
+        } else if(SHARD_ITERATOR_TYPE_DYNAMODB_AFTER_SEQUENCE_NUMBER.equals(shardIteratorType)) {
+            internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_AFTER_SEQUENCE_NUMBER);
+        } else {
+            throw new IllegalArgumentException("Unsupported ShardIteratorType: " + shardIteratorType);
+        }
     }
 
     /**
@@ -138,19 +164,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
      */
     @Override
     public void setShardIteratorType(ShardIteratorType shardIteratorType) {
-        switch(shardIteratorType) {
-        case TRIM_HORIZON:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON);
-            break;
-        case LATEST:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST);
-            break;
-        case AT_SEQUENCE_NUMBER:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER);
-            break;
-        case AFTER_SEQUENCE_NUMBER:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER);
-        }
+        setShardIteratorType(shardIteratorType.toString());
     }
 
     /**
@@ -160,7 +174,8 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
      */
     @Override
     public GetShardIteratorRequest withShardIteratorType(String shardIteratorType) {
-        return this.withShardIteratorType(ShardIteratorType.fromValue(shardIteratorType));
+        setShardIteratorType(shardIteratorType);
+        return this;
     }
 
     /**
@@ -170,19 +185,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
      */
     @Override
     public GetShardIteratorRequest withShardIteratorType(ShardIteratorType shardIteratorType) {
-        switch(shardIteratorType) {
-        case TRIM_HORIZON:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON);
-            break;
-        case LATEST:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST);
-            break;
-        case AT_SEQUENCE_NUMBER:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER);
-            break;
-        case AFTER_SEQUENCE_NUMBER:
-            internalRequest.setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER);
-        }
+        setShardIteratorType(shardIteratorType);
         return this;
     }
 

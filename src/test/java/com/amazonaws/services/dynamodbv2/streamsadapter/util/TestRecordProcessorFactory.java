@@ -15,6 +15,7 @@
 package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessor;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorFactory;
@@ -35,8 +36,8 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
     }
 
     private Processor requestedProcessor;
-
     private RecordProcessorTracker tracker;
+    private IRecordProcessor createdProcessor = null;
 
     /**
      * Using this constructor will result in the createProcessor method
@@ -49,10 +50,8 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
         requestedProcessor = Processor.COUNTING;
     }
 
-    private AWSCredentialsProvider credentials;
-    private String dynamoDBEndpoint;
-    private String serviceName;
     private String tableName;
+    private AmazonDynamoDB dynamoDB;
 
     /**
      * Using this constructor will result in the createProcessor method
@@ -67,25 +66,68 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
             String dynamoDBEndpoint,
             String serviceName,
             String tableName) {
-        this.credentials = credentials;
-        this.dynamoDBEndpoint = dynamoDBEndpoint;
-        this.serviceName = serviceName;
         this.tableName = tableName;
+        requestedProcessor = Processor.REPLICATING;
+
+        this.dynamoDB = new AmazonDynamoDBClient(credentials);
+        dynamoDB.setEndpoint(dynamoDBEndpoint);
+        ((AmazonDynamoDBClient) dynamoDB).setServiceNameIntern(serviceName);
+    }
+
+    /**
+     * Using this constructor creates a replicating processor for an
+     * embedded(in-memory) instance of DynamoDB local
+     * @param dynamoDB DynamoDB client for embedded DynamoDB instance
+     * @param tableName The name of the table used for replication
+     */
+    public TestRecordProcessorFactory(AmazonDynamoDB dynamoDB, String tableName) {
+        this.tableName = tableName;
+        this.dynamoDB = dynamoDB;
         requestedProcessor = Processor.REPLICATING;
     }
 
     @Override
     public IRecordProcessor createProcessor() {
-        switch(requestedProcessor) {
-        case REPLICATING :
-            AmazonDynamoDBClient dynamoDBClient = new AmazonDynamoDBClient(credentials);
-            dynamoDBClient.setEndpoint(dynamoDBEndpoint);
-            dynamoDBClient.setServiceNameIntern(serviceName);
-            return new ReplicatingRecordProcessor(dynamoDBClient, tableName);
-        case COUNTING :
-            return new CountingRecordProcessor(tracker);
-        default :
-            return new CountingRecordProcessor(tracker);
+        switch (requestedProcessor) {
+            case REPLICATING:
+                createdProcessor = new ReplicatingRecordProcessor(dynamoDB, tableName);
+                break;
+            case COUNTING:
+                createdProcessor = new CountingRecordProcessor(tracker);
+                break;
+            default:
+                createdProcessor = new CountingRecordProcessor(tracker);
+                break;
+        }
+
+        return createdProcessor;
+    }
+
+    /**
+     * This method returns -1 under the following conditions:
+     * 1. createProcessor() has not yet been called
+     * 2. initialize() method on the ReplicatingRecordProcessor instance has not yet been called
+     * 3. requestedProcessor is COUNTING
+     *
+     * @return number of records processed by processRecords
+     */
+    public int getNumRecordsProcessed() {
+        if (createdProcessor == null) return -1;
+        switch (requestedProcessor) {
+            case REPLICATING:
+                return ((ReplicatingRecordProcessor) createdProcessor).getNumRecordsProcessed();
+            default:
+                return -1;
+        }
+    }
+
+    public int getNumProcessRecordsCalls() {
+        if (createdProcessor == null) return -1;
+        switch (requestedProcessor) {
+            case REPLICATING:
+                return ((ReplicatingRecordProcessor) createdProcessor).getNumProcessRecordsCalls();
+            default:
+                return -1;
         }
     }
 

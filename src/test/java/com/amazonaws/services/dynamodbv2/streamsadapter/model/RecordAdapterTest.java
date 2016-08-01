@@ -15,15 +15,15 @@
 package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 
 import static org.junit.Assert.assertEquals;
-
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
-import java.nio.ByteBuffer;
-
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -40,13 +40,8 @@ import com.amazonaws.services.dynamodbv2.model.OperationType;
 import com.amazonaws.services.dynamodbv2.model.Record;
 import com.amazonaws.services.dynamodbv2.model.StreamRecord;
 import com.amazonaws.services.dynamodbv2.model.StreamViewType;
-
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordObjectMapper;
-
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -60,6 +55,27 @@ public class RecordAdapterTest {
 
     private static final String TEST_STRING = "TestString";
 
+    private static final Date TEST_DATE = new Date(1156377600 /* EC2 Announced */);
+
+    private static final String TEST_RECORD_v1_0 = new StringBuilder().append("{")
+            .append("\"awsRegion\":\"us-east-1\",")
+            .append("\"dynamodb\":")
+            .append("{")
+            .append("\"Keys\":")
+            .append("{")
+            .append("\"hashKey\":{\"S\":\"hashKeyValue\"}")
+            .append("},")
+            .append("\"StreamViewType\":\"NEW_AND_OLD_IMAGES\",")
+            .append("\"SequenceNumber\":\"100000000003498069978\",")
+            .append("\"SizeBytes\":6")
+            .append("},")
+            .append("\"eventID\":\"33fe21d365c03362c5e66d8dec2b63d5\",")
+            .append("\"eventVersion\":\"1.0\",")
+            .append("\"eventName\":\"INSERT\",")
+            .append("\"eventSource\":\"aws:dynamodb\"")
+            .append("}")
+            .toString();
+
     private Record testRecord;
 
     private RecordAdapter adapter;
@@ -70,7 +86,7 @@ public class RecordAdapterTest {
         testRecord.setAwsRegion("us-east-1");
         testRecord.setEventID(UUID.randomUUID().toString());
         testRecord.setEventSource("aws:dynamodb");
-        testRecord.setEventVersion("1.0");
+        testRecord.setEventVersion("1.1");
         testRecord.setEventName(OperationType.MODIFY);
         StreamRecord testStreamRecord = new StreamRecord();
         testRecord.setDynamodb(testStreamRecord);
@@ -79,6 +95,7 @@ public class RecordAdapterTest {
         Map<String, AttributeValue> oldImage = new HashMap<String, AttributeValue>(key);
         Map<String, AttributeValue> newImage = new HashMap<String, AttributeValue>(key);
         newImage.put("newAttributeKey", new AttributeValue("someValue"));
+        testStreamRecord.setApproximateCreationDateTime(TEST_DATE);
         testStreamRecord.setKeys(key);
         testStreamRecord.setOldImage(oldImage);
         testStreamRecord.setNewImage(newImage);
@@ -170,11 +187,33 @@ public class RecordAdapterTest {
     }
 
     @Test
+    public void testApproximateCreationDateTime() throws IOException {
+        String serialized = MAPPER.writeValueAsString(testRecord);
+        Record deserialized = MAPPER.readValue(serialized, Record.class);
+        com.amazonaws.services.kinesis.model.Record adapter = new RecordAdapter(deserialized);
+        assertEquals(TEST_DATE, adapter.getApproximateArrivalTimestamp());
+        Date newDate = new Date();
+        adapter.setApproximateArrivalTimestamp(newDate);
+        assertEquals(newDate, deserialized.getDynamodb().getApproximateCreationDateTime());
+        assertEquals(newDate, adapter.getApproximateArrivalTimestamp());
+        adapter.withApproximateArrivalTimestamp(TEST_DATE);
+        assertEquals(TEST_DATE, deserialized.getDynamodb().getApproximateCreationDateTime());
+        assertEquals(TEST_DATE, adapter.getApproximateArrivalTimestamp());
+    };
+
+    @Test
     public void testGetInternalObject() {
         com.amazonaws.services.kinesis.model.Record kinesisRecord = null;
         kinesisRecord = new RecordAdapter(testRecord);
         Record internalObject = ((RecordAdapter) kinesisRecord).getInternalObject();
         assertEquals(testRecord, internalObject);
+    }
+
+    @Test
+    public void testRecord_v1_0() throws IOException {
+        Record deserialized = MAPPER.readValue(TEST_RECORD_v1_0, Record.class);
+        com.amazonaws.services.kinesis.model.Record adapter = new RecordAdapter(deserialized);
+        assertNull(adapter.getApproximateArrivalTimestamp());
     }
 
 }

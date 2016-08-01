@@ -102,7 +102,7 @@ public class StreamDescriptionAdapterTest {
         assertEquals(com.amazonaws.services.kinesis.model.StreamStatus.ACTIVE.toString(), actual);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testUnsupportedStreamStatus(){
         when(mockDescription.getStreamStatus()).thenReturn(TEST_STRING);
         String actual = adapter.getStreamStatus();

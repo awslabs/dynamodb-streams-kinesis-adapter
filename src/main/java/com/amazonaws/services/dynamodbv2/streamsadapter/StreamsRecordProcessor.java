@@ -55,7 +55,7 @@ public abstract class StreamsRecordProcessor implements IRecordProcessor {
     /**
      * Process data records. The Amazon Kinesis Client Library will invoke this method to deliver data records to the
      * application.
-     * Upon fail over, the new instance will get records with sequence number > checkpoint position
+     * Upon fail over, the new instance will get records with sequence number &gt; checkpoint position
      * for each partition key.
      *
      * @param records Data records to be processed

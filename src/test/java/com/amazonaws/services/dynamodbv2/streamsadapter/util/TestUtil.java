@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClient;
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
@@ -39,6 +40,8 @@ import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
+import com.amazonaws.services.dynamodbv2.model.QueryRequest;
+import com.amazonaws.services.dynamodbv2.model.QueryResult;
 import com.amazonaws.services.dynamodbv2.model.ResourceInUseException;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanResult;
@@ -54,7 +57,7 @@ public class TestUtil {
     /**
      * @return StreamId
      */
-    public static String createTable(AmazonDynamoDBClient client, String tableName, Boolean withStream) {
+    public static String createTable(AmazonDynamoDB client, String tableName, Boolean withStream) {
         java.util.List<AttributeDefinition> attributeDefinitions = new ArrayList<AttributeDefinition>();
         attributeDefinitions.add(new AttributeDefinition().withAttributeName("Id").withAttributeType("N"));
 
@@ -85,7 +88,7 @@ public class TestUtil {
         }
     }
 
-    public static void waitForTableActive(AmazonDynamoDBClient client, String tableName) throws IllegalStateException {
+    public static void waitForTableActive(AmazonDynamoDB client, String tableName) throws IllegalStateException {
         Integer retries = 0;
         Boolean created = false;
         while(!created && retries < 100) {
@@ -117,7 +120,7 @@ public class TestUtil {
         client.updateTable(updateTableRequest);
     }
 
-    public static DescribeTableResult describeTable(AmazonDynamoDBClient client, String tableName) {
+    public static DescribeTableResult describeTable(AmazonDynamoDB client, String tableName) {
         return client.describeTable(new DescribeTableRequest().withTableName(tableName));
     }
 
@@ -131,11 +134,23 @@ public class TestUtil {
         return result.getStreamDescription();
     }
 
-    public static ScanResult scanTable(AmazonDynamoDBClient client, String tableName) {
+    public static ScanResult scanTable(AmazonDynamoDB client, String tableName) {
         return client.scan(new ScanRequest().withTableName(tableName));
     }
 
-    public static void putItem(AmazonDynamoDBClient client, String tableName, String id, String val) {
+    public static QueryResult queryTable(AmazonDynamoDB client, String tableName, String partitionKey) {
+        Map<String, AttributeValue> expressionAttributeValues = new HashMap<String, AttributeValue>();
+        expressionAttributeValues.put(":v_id", new AttributeValue().withN(partitionKey));
+
+        QueryRequest queryRequest = new QueryRequest()
+            .withTableName(tableName)
+            .withKeyConditionExpression("Id = :v_id")
+            .withExpressionAttributeValues(expressionAttributeValues);
+
+        return client.query(queryRequest);
+    }
+
+    public static void putItem(AmazonDynamoDB client, String tableName, String id, String val) {
         java.util.Map<String, AttributeValue> item = new HashMap<String, AttributeValue>();
         item.put("Id", new AttributeValue().withN(id));
         item.put("attribute-1", new AttributeValue().withS(val));
@@ -146,14 +161,14 @@ public class TestUtil {
         client.putItem(putItemRequest);
     }
 
-    public static void putItem(AmazonDynamoDBClient client, String tableName, java.util.Map<String, AttributeValue> items) {
+    public static void putItem(AmazonDynamoDB client, String tableName, java.util.Map<String, AttributeValue> items) {
         PutItemRequest putItemRequest = new PutItemRequest()
             .withTableName(tableName)
             .withItem(items);
         client.putItem(putItemRequest);
     }
 
-    public static void updateItem(AmazonDynamoDBClient client, String tableName, String id, String val) {
+    public static void updateItem(AmazonDynamoDB client, String tableName, String id, String val) {
         java.util.Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
         key.put("Id", new AttributeValue().withN(id));
 
@@ -170,7 +185,7 @@ public class TestUtil {
         client.updateItem(updateItemRequest);
     }
 
-    public static void deleteItem(AmazonDynamoDBClient client, String tableName, String id) {
+    public static void deleteItem(AmazonDynamoDB client, String tableName, String id) {
         java.util.Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
         key.put("Id", new AttributeValue().withN(id));
 

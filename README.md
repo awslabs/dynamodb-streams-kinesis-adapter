@@ -15,7 +15,7 @@
 
 ## Release Notes
 * Requires Kinesis Client Library version >= 1.6.0.
-* Requires AWS Java SDK version >= 1.10.7
+* Requires AWS Java SDK version >= 1.11.7
 * It is highly recommended to [configure][kcl-configuration] Kinesis Client Library with `MaxRecords = 1000` and `IdleTimeInMillis = 500` to optimize DynamoDB Streams costs.
 
 ## Getting Started

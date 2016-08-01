@@ -57,12 +57,13 @@ public class RecordObjectMapper extends ObjectMapper {
     public static final String SEQUENCE_NUMBER = "SequenceNumber";
     public static final String SIZE_BYTES = "SizeBytes";
     public static final String KEYS = "Keys";
-    public static final String AWS_REGION = "AwsRegion";
-    public static final String DYNAMODB = "Dynamodb";
-    public static final String EVENT_ID = "EventID";
-    public static final String EVENT_NAME = "EventName";
-    public static final String EVENT_SOURCE = "EventSource";
-    public static final String EVENT_VERSION = "EventVersion";
+    public static final String AWS_REGION = "awsRegion";
+    public static final String DYNAMODB = "dynamodb";
+    public static final String EVENT_ID = "eventID";
+    public static final String EVENT_NAME = "eventName";
+    public static final String EVENT_SOURCE = "eventSource";
+    public static final String EVENT_VERSION = "eventVersion";
+    public static final String APPROXIMATE_CREATION_DATE_TIME = "ApproximateCreationDateTime";
 
     private static final String MODULE = "custom";
 
@@ -81,9 +82,9 @@ public class RecordObjectMapper extends ObjectMapper {
         // Don't serialize things that are null
         this.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-        this.addMixInAnnotations(AttributeValue.class, AttributeValueMixIn.class);
-        this.addMixInAnnotations(Record.class, RecordMixIn.class);
-        this.addMixInAnnotations(StreamRecord.class, StreamRecordMixIn.class);
+        this.addMixIn(AttributeValue.class, AttributeValueMixIn.class);
+        this.addMixIn(Record.class, RecordMixIn.class);
+        this.addMixIn(StreamRecord.class, StreamRecordMixIn.class);
     }
 
     /*
@@ -135,6 +136,8 @@ public class RecordObjectMapper extends ObjectMapper {
         @JsonProperty(NEW_IMAGE) public abstract void setNewImage(Map<String, AttributeValue> newImage);
         @JsonProperty(OLD_IMAGE) public abstract Map<String, AttributeValue> getOldImage();
         @JsonProperty(OLD_IMAGE) public abstract void setOldImage(Map<String, AttributeValue> oldImage);
+        @JsonProperty(APPROXIMATE_CREATION_DATE_TIME) public abstract Date getApproximateCreationDateTime();
+        @JsonProperty(APPROXIMATE_CREATION_DATE_TIME) public abstract void setApproximateCreationDateTime(Date approximateCreationDateTime);
     }
 
     private static abstract class AttributeValueMixIn {

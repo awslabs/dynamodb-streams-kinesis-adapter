@@ -44,11 +44,15 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorRe
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorResultAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsRequestAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.ListStreamsResultAdapter;
-import com.amazonaws.services.kinesis.AmazonKinesis;
+import com.amazonaws.services.kinesis.AbstractAmazonKinesis;
 import com.amazonaws.services.kinesis.model.AddTagsToStreamRequest;
+import com.amazonaws.services.kinesis.model.AddTagsToStreamResult;
 import com.amazonaws.services.kinesis.model.CreateStreamRequest;
+import com.amazonaws.services.kinesis.model.CreateStreamResult;
 import com.amazonaws.services.kinesis.model.DecreaseStreamRetentionPeriodRequest;
+import com.amazonaws.services.kinesis.model.DecreaseStreamRetentionPeriodResult;
 import com.amazonaws.services.kinesis.model.DeleteStreamRequest;
+import com.amazonaws.services.kinesis.model.DeleteStreamResult;
 import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.DescribeStreamResult;
 import com.amazonaws.services.kinesis.model.GetRecordsRequest;
@@ -56,23 +60,27 @@ import com.amazonaws.services.kinesis.model.GetRecordsResult;
 import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
 import com.amazonaws.services.kinesis.model.GetShardIteratorResult;
 import com.amazonaws.services.kinesis.model.IncreaseStreamRetentionPeriodRequest;
+import com.amazonaws.services.kinesis.model.IncreaseStreamRetentionPeriodResult;
 import com.amazonaws.services.kinesis.model.ListStreamsRequest;
 import com.amazonaws.services.kinesis.model.ListStreamsResult;
 import com.amazonaws.services.kinesis.model.ListTagsForStreamRequest;
 import com.amazonaws.services.kinesis.model.ListTagsForStreamResult;
 import com.amazonaws.services.kinesis.model.MergeShardsRequest;
+import com.amazonaws.services.kinesis.model.MergeShardsResult;
 import com.amazonaws.services.kinesis.model.PutRecordRequest;
 import com.amazonaws.services.kinesis.model.PutRecordResult;
 import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsResult;
 import com.amazonaws.services.kinesis.model.RemoveTagsFromStreamRequest;
+import com.amazonaws.services.kinesis.model.RemoveTagsFromStreamResult;
 import com.amazonaws.services.kinesis.model.ShardIteratorType;
 import com.amazonaws.services.kinesis.model.SplitShardRequest;
+import com.amazonaws.services.kinesis.model.SplitShardResult;
 
 /**
  * Client for accessing DynamoDB Streams using the Amazon Kinesis interface.
  */
-public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
+public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
     /**
      * Request cache capacity based on {@link AmazonHttpClient}.
@@ -204,6 +212,8 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      * Recommended constructor for AmazonDynamoDBStreamsAdapterClient which takes in an AmazonDynamoDBStreams
      * interface. If you need to execute setEndpoint(String,String,String) or setServiceNameIntern() methods,
      * you should do that on AmazonDynamoDBStreamsClient implementation before passing it in this constructor.
+     * @param amazonDynamoDBStreams
+     *            The DynamoDB Streams to be used internally
      */
     public AmazonDynamoDBStreamsAdapterClient(AmazonDynamoDBStreams amazonDynamoDBStreams) {
         internalClient = amazonDynamoDBStreams;
@@ -487,37 +497,37 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
 
     // Not supported by the underlying Streams model
     @Override
-    public void splitShard(SplitShardRequest splitShardRequest) {
+    public SplitShardResult splitShard(SplitShardRequest splitShardRequest) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void splitShard(String streamName, String shardToSplit, String newStartingHashKey) {
+    public SplitShardResult splitShard(String streamName, String shardToSplit, String newStartingHashKey) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void createStream(CreateStreamRequest createStreamRequest) {
+    public CreateStreamResult createStream(CreateStreamRequest createStreamRequest) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void createStream(String streamName, Integer shardCount) {
+    public CreateStreamResult createStream(String streamName, Integer shardCount) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void deleteStream(DeleteStreamRequest deleteStreamRequest) {
+    public DeleteStreamResult deleteStream(DeleteStreamRequest deleteStreamRequest) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void deleteStream(String streamName) {
+    public DeleteStreamResult deleteStream(String streamName) {
         throw new UnsupportedOperationException();
     }
 
@@ -575,19 +585,19 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
 
     // Not supported by the underlying Streams model
     @Override
-    public void mergeShards(MergeShardsRequest mergeShardsRequest) {
+    public MergeShardsResult mergeShards(MergeShardsRequest mergeShardsRequest) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void mergeShards(String streamName, String shardToMerge, String adjacentShardToMerge) {
+    public MergeShardsResult mergeShards(String streamName, String shardToMerge, String adjacentShardToMerge) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void addTagsToStream(AddTagsToStreamRequest addTagsToStreamRequest) {
+    public AddTagsToStreamResult addTagsToStream(AddTagsToStreamRequest addTagsToStreamRequest) {
         throw new UnsupportedOperationException();
     }
 
@@ -599,7 +609,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
 
     // Not supported by the underlying Streams model
     @Override
-    public void removeTagsFromStream(RemoveTagsFromStreamRequest removeTagsFromStreamRequest) {
+    public RemoveTagsFromStreamResult removeTagsFromStream(RemoveTagsFromStreamRequest removeTagsFromStreamRequest) {
         throw new UnsupportedOperationException();
     }
 
@@ -624,7 +634,8 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
     }
 
     /**
-     * Gets the value of {@link SkipRecordsBehavior}
+     * Gets the value of {@link SkipRecordsBehavior}.
+     * @return The value of {@link SkipRecordsBehavior}
      */
     public SkipRecordsBehavior getSkipRecordsBehavior() {
         return skipRecordsBehavior;
@@ -634,7 +645,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
      * Sets a value of {@link SkipRecordsBehavior} to decide how the application handles the case when records are lost.
      * Default = {@link SkipRecordsBehavior#SKIP_RECORDS_TO_TRIM_HORIZON}
      *
-     * @param skipRecordsBehavior
+     * @param skipRecordsBehavior A {@link SkipRecordsBehavior} for the adapter
      */
     public void setSkipRecordsBehavior(SkipRecordsBehavior skipRecordsBehavior) {
         if (skipRecordsBehavior == null) {
@@ -645,14 +656,14 @@ public class AmazonDynamoDBStreamsAdapterClient implements AmazonKinesis {
 
     // Not supported by the underlying Streams model
     @Override
-    public void decreaseStreamRetentionPeriod(
+    public DecreaseStreamRetentionPeriodResult decreaseStreamRetentionPeriod(
            DecreaseStreamRetentionPeriodRequest decreaseStreamRetentionPeriodRequest) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public void increaseStreamRetentionPeriod(
+    public IncreaseStreamRetentionPeriodResult increaseStreamRetentionPeriod(
             IncreaseStreamRetentionPeriodRequest increaseStreamRetentionPeriodRequest) {
         throw new UnsupportedOperationException();
     }

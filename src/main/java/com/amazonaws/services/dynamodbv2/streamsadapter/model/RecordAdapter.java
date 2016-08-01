@@ -17,12 +17,12 @@ package com.amazonaws.services.dynamodbv2.streamsadapter.model;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.Date;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazonaws.services.kinesis.model.Record;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -145,6 +145,23 @@ public class RecordAdapter extends Record {
     @Override
     public Record withPartitionKey(String partitionKey) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Date getApproximateArrivalTimestamp() {
+        return internalRecord.getDynamodb().getApproximateCreationDateTime();
+    }
+
+    @Override
+    public void setApproximateArrivalTimestamp(Date approximateArrivalTimestamp) {
+        internalRecord.getDynamodb().setApproximateCreationDateTime(approximateArrivalTimestamp);
+    }
+
+    @Override
+    public Record withApproximateArrivalTimestamp(
+            Date approximateArrivalTimestamp) {
+        setApproximateArrivalTimestamp(approximateArrivalTimestamp);
+        return this;
     }
 
 }

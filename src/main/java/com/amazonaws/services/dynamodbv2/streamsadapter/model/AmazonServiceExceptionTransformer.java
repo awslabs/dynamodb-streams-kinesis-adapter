@@ -27,7 +27,6 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadM
  * This class transforms an Amazon DynamoDB Streams AmazonServiceException into a compatible Amazon Kinesis
  * AmazonServiceException.
  * </p>
- * <p>
  * Applicable API calls:
  *
  * <ul>
@@ -62,7 +61,6 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadM
  * </ul>
  * </li>
  * </ul>
- * </p>
  */
 public class AmazonServiceExceptionTransformer {
 
@@ -223,6 +221,8 @@ public class AmazonServiceExceptionTransformer {
      *
      * @param ase
      *            The Amazon DynamoDB Streams exception thrown by a GetRecords call
+     * @param skipRecordsBehavior
+     *            The {@link SkipRecordsBehavior} for the adapter
      * @return A compatible Amazon Kinesis GetRecords exception
      */
     public static AmazonServiceException transformDynamoDBStreamsToKinesisGetRecords(AmazonServiceException ase,
@@ -287,6 +287,8 @@ public class AmazonServiceExceptionTransformer {
      *
      * @param ase
      *            The Amazon DynamoDB Streams exception thrown by a GetRecords call
+     * @param skipRecordsBehavior
+     *            The {@link SkipRecordsBehavior} for the adapter
      * @return A compatible Amazon Kinesis GetRecords exception
      */
     public static AmazonServiceException transformDynamoDBStreamsToKinesisGetShardIterator(AmazonServiceException ase,

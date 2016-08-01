@@ -25,6 +25,17 @@ import com.amazonaws.services.kinesis.model.StreamStatus;
  * Container for all information describing a single DynamoDB Stream.
  */
 public class StreamDescriptionAdapter extends StreamDescription {
+    // Evaluate each StreamStatus.toString() only once
+    private static final String STREAM_STATUS_DYNAMODB_DISABLED =
+        com.amazonaws.services.dynamodbv2.model.StreamStatus.DISABLED.toString();
+    private static final String STREAM_STATUS_DYNAMODB_DISABLING =
+        com.amazonaws.services.dynamodbv2.model.StreamStatus.DISABLING.toString();
+    private static final String STREAM_STATUS_DYNAMODB_ENABLED =
+        com.amazonaws.services.dynamodbv2.model.StreamStatus.ENABLED.toString();
+    private static final String STREAM_STATUS_DYNAMODB_ENABLING =
+        com.amazonaws.services.dynamodbv2.model.StreamStatus.ENABLING.toString();
+    private static final String STREAM_STATUS_KINESIS_ACTIVE = StreamStatus.ACTIVE.toString();
+    private static final String STREAM_STATUS_KINESIS_CREATING = StreamStatus.CREATING.toString();
 
     private final com.amazonaws.services.dynamodbv2.model.StreamDescription internalDescription;
 
@@ -92,21 +103,18 @@ public class StreamDescriptionAdapter extends StreamDescription {
     @Override
     public String getStreamStatus() {
         String status = internalDescription.getStreamStatus();
-        switch(com.amazonaws.services.dynamodbv2.model.StreamStatus.fromValue(status)) {
-        case ENABLED :
-            status = StreamStatus.ACTIVE.toString();
-            break;
-        case ENABLING :
-            status = StreamStatus.CREATING.toString();
-            break;
-        // streams are valid for 24hrs after disabling and
-        // will continue to support read operations
-        case DISABLED :
-            status = StreamStatus.ACTIVE.toString();
-            break;
-        case DISABLING :
-            status = StreamStatus.ACTIVE.toString();
-            break;
+        if(STREAM_STATUS_DYNAMODB_ENABLED.equals(status)) {
+            status = STREAM_STATUS_KINESIS_ACTIVE;
+        } else if(STREAM_STATUS_DYNAMODB_ENABLING.equals(status)) {
+            status = STREAM_STATUS_KINESIS_CREATING;
+        } else if(STREAM_STATUS_DYNAMODB_DISABLED.equals(status)) {
+            // streams are valid for 24hrs after disabling and
+            // will continue to support read operations
+            status = STREAM_STATUS_KINESIS_ACTIVE;
+        } else if(STREAM_STATUS_DYNAMODB_DISABLING.equals(status)) {
+            status = STREAM_STATUS_KINESIS_ACTIVE;
+        } else {
+            throw new UnsupportedOperationException("Unsupported StreamStatus: " + status);
         }
         return status;
     }
