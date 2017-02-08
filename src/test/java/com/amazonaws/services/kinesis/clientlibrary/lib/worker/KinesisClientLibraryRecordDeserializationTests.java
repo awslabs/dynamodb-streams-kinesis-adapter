@@ -74,11 +74,11 @@ public class KinesisClientLibraryRecordDeserializationTests {
     private static final AmazonDynamoDBStreamsAdapterClient ADAPTER_CLIENT = new AmazonDynamoDBStreamsAdapterClient(DYNAMODB_STREAMS);
     private static final IKinesisProxy KINESIS_PROXY = new KinesisProxyFactory(new StaticCredentialsProvider(new BasicAWSCredentials("NotAnAccessKey",
         "NotASecretKey")), ADAPTER_CLIENT).getProxy(STREAM_NAME);
-    private static final ShardInfo SHARD_INFO = new ShardInfo(SHARD_ID, "concurrencyToken", new ArrayList<String>());
     private static final ExtendedSequenceNumber EXTENDED_SEQUENCE_NUMBER = new ExtendedSequenceNumber(SEQUENCE_NUMBER_0);
+    private static final ShardInfo SHARD_INFO = new ShardInfo(SHARD_ID, "concurrencyToken", new ArrayList<String>(), EXTENDED_SEQUENCE_NUMBER);
     private static final KinesisDataFetcher KINESIS_DATA_FETCHER = new KinesisDataFetcher(KINESIS_PROXY, SHARD_INFO);
     private static final StreamConfig STREAM_CONFIG = new StreamConfig(KINESIS_PROXY, 1000/* RecordLimit */, 0l /* IdleTimeMillis */,
-        false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */, InitialPositionInStream.TRIM_HORIZON);
+        false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */, InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
 
     @Test
     public void testVerifyKCLProvidesRecordAdapter() throws KinesisClientLibException {
@@ -92,10 +92,10 @@ public class KinesisClientLibraryRecordDeserializationTests {
             new GetRecordsResult().withNextShardIterator(SHARD_ITERATOR).withRecords(RECORDS));
 
         // Initialize the Record Processor
-        InitializeTask initializeTask = new InitializeTask(SHARD_INFO, RECORD_PROCESSOR, CHECKPOINT, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */);
+        InitializeTask initializeTask = new InitializeTask(SHARD_INFO, RECORD_PROCESSOR, CHECKPOINT, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L , STREAM_CONFIG/* backoffTimeMillis */);
         initializeTask.call();
         // Execute process task
-        ProcessTask processTask = new ProcessTask(SHARD_INFO, STREAM_CONFIG, RECORD_PROCESSOR, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */);
+        ProcessTask processTask = new ProcessTask(SHARD_INFO, STREAM_CONFIG, RECORD_PROCESSOR, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, false);
         processTask.call();
 
         // Verify mocks
