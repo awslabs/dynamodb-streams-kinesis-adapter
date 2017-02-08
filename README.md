@@ -14,7 +14,7 @@
 * The KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
 ## Release Notes
-* Requires Kinesis Client Library version >= 1.6.4.
+* Requires Kinesis Client Library version >= 1.7.1.
 * Requires AWS Java SDK version >= 1.11.14
 * It is highly recommended to [configure][kcl-configuration] Kinesis Client Library with `MaxRecords = 1000` and `IdleTimeInMillis = 500` to optimize DynamoDB Streams costs.
 
