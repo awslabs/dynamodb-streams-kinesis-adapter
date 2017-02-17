@@ -17,6 +17,7 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazonaws.client.AwsSyncClientParams;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -218,7 +219,18 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     public AmazonDynamoDBStreamsAdapterClient(AmazonDynamoDBStreams amazonDynamoDBStreams) {
         internalClient = amazonDynamoDBStreams;
     }
-
+    
+    /**
+     *
+     * @param params
+     */
+    public AmazonDynamoDBStreamsAdapterClient( AwsSyncClientParams params )
+    {
+        this( params.getCredentialsProvider(),
+              params.getClientConfiguration(),
+              params.getRequestMetricCollector() );
+    }
+    
     /**
      * Overrides the default endpoint for this client. Callers can use this method to control which AWS region they want
      * to work with.
