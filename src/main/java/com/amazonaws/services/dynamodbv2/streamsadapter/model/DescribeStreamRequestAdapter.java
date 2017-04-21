@@ -101,7 +101,6 @@ public class DescribeStreamRequestAdapter extends DescribeStreamRequest {
     }
 
     /**
-     *
      * @param streamArn The ARN of the stream to describe.
      * @return A reference to this updated object so that method calls can be chained together.
      */

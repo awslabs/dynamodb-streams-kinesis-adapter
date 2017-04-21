@@ -91,10 +91,9 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     private static final String DUMMY_SECRET_KEY = "dummySecretKey";
 
-    private static final ClientConfiguration CLIENT_CONFIGURATION = new ClientConfiguration().withProtocol(
-        Protocol.HTTPS).withGzip(true);
+    private static final ClientConfiguration CLIENT_CONFIGURATION = new ClientConfiguration().withProtocol(Protocol.HTTPS).withGzip(true);
 
-    private static final AWSCredentials CREDENTIALS = new BasicAWSCredentials(DUMMY_ACCESS_KEY, DUMMY_SECRET_KEY);
+    private static final com.amazonaws.auth.AWSCredentials CREDENTIALS = new BasicAWSCredentials(DUMMY_ACCESS_KEY, DUMMY_SECRET_KEY);
 
     private static final AWSCredentialsProvider CREDENTIALS_PROVIDER = new AWSCredentialsProvider() {
 
@@ -113,27 +112,24 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     private static final Map<String, AttributeValue> KEYS = Collections.emptyMap();
 
-    private static final StreamRecord STREAM_RECORD = new StreamRecord().withKeys(KEYS).withSequenceNumber(TEST_STRING)
-        .withSizeBytes(0L).withStreamViewType(StreamViewType.KEYS_ONLY);
+    private static final StreamRecord STREAM_RECORD =
+        new StreamRecord().withKeys(KEYS).withSequenceNumber(TEST_STRING).withSizeBytes(0L).withStreamViewType(StreamViewType.KEYS_ONLY);
 
-    private static final Record RECORD = new Record().withAwsRegion(TEST_STRING).withDynamodb(STREAM_RECORD)
-        .withEventID(TEST_STRING).withEventName(OperationType.INSERT).withEventSource(TEST_STRING)
-        .withEventVersion(TEST_STRING);
+    private static final Record RECORD =
+        new Record().withAwsRegion(TEST_STRING).withDynamodb(STREAM_RECORD).withEventID(TEST_STRING).withEventName(OperationType.INSERT).withEventSource(TEST_STRING)
+            .withEventVersion(TEST_STRING);
 
-    private static final Stream STREAM = new Stream().withStreamArn(STREAM_ID).withStreamLabel(TEST_STRING)
-        .withTableName(TEST_STRING);
+    private static final Stream STREAM = new Stream().withStreamArn(STREAM_ID).withStreamLabel(TEST_STRING).withTableName(TEST_STRING);
 
-    private static final SequenceNumberRange SEQ_NUMBER_RANGE = new SequenceNumberRange().withStartingSequenceNumber(
-        "0").withEndingSequenceNumber("1");
+    private static final SequenceNumberRange SEQ_NUMBER_RANGE = new SequenceNumberRange().withStartingSequenceNumber("0").withEndingSequenceNumber("1");
 
     private static final Shard SHARD = new Shard().withShardId(TEST_STRING).withSequenceNumberRange(SEQ_NUMBER_RANGE);
 
-    private static final StreamDescription STREAM_DESCRIPTION = new StreamDescription()
-        .withCreationRequestDateTime(new Date()).withShards(SHARD).withStreamArn(TEST_STRING)
-        .withStreamStatus(StreamStatus.ENABLED).withStreamViewType(StreamViewType.KEYS_ONLY).withTableName(TEST_STRING);
+    private static final StreamDescription STREAM_DESCRIPTION =
+        new StreamDescription().withCreationRequestDateTime(new Date()).withShards(SHARD).withStreamArn(TEST_STRING).withStreamStatus(StreamStatus.ENABLED)
+            .withStreamViewType(StreamViewType.KEYS_ONLY).withTableName(TEST_STRING);
 
-    private static final DescribeStreamResult DESCRIBE_STREAM_RESULT = new DescribeStreamResult()
-        .withStreamDescription(STREAM_DESCRIPTION);
+    private static final DescribeStreamResult DESCRIBE_STREAM_RESULT = new DescribeStreamResult().withStreamDescription(STREAM_DESCRIPTION);
 
     private static final String SERVICE_NAME = "dynamodb";
 
@@ -147,15 +143,13 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
     public void setUpTest() {
         mockClient = mock(AmazonDynamoDBStreamsClient.class);
         adapterClient = new AmazonDynamoDBStreamsAdapterClient(mockClient);
-        when(mockClient.describeStream(any(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class)))
-            .thenReturn(DESCRIBE_STREAM_RESULT);
+        when(mockClient.describeStream(any(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class))).thenReturn(DESCRIBE_STREAM_RESULT);
         when(mockClient.getShardIterator(any(com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class)))
             .thenReturn(new com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult());
-        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(
-            new com.amazonaws.services.dynamodbv2.model.GetRecordsResult()
-                .withRecords(new java.util.ArrayList<com.amazonaws.services.dynamodbv2.model.Record>()));
-        when(mockClient.listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class))).thenReturn(
-            new com.amazonaws.services.dynamodbv2.model.ListStreamsResult());
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class)))
+            .thenReturn(new com.amazonaws.services.dynamodbv2.model.GetRecordsResult().withRecords(new java.util.ArrayList<com.amazonaws.services.dynamodbv2.model.Record>()));
+        when(mockClient.listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class)))
+            .thenReturn(new com.amazonaws.services.dynamodbv2.model.ListStreamsResult());
     }
 
     @Test
@@ -167,8 +161,8 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     @Test
     public void testConstructorAWSCredentials() throws Exception {
-        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentials.class)
-            .withArguments(isA(AWSCredentials.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
+        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentials.class).withArguments(isA(AWSCredentials.class))
+            .then(new Answer<AmazonDynamoDBStreamsClient>() {
 
                 @Override
                 public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
@@ -184,13 +178,12 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     @Test
     public void testConstructorAWSCredentialsProvider() throws Exception {
-        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentialsProvider.class)
-            .withArguments(isA(AWSCredentialsProvider.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
+        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentialsProvider.class).withArguments(isA(AWSCredentialsProvider.class))
+            .then(new Answer<AmazonDynamoDBStreamsClient>() {
 
                 @Override
                 public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
-                    AWSCredentialsProvider credentialsProvider = invocation.getArgumentAt(0,
-                        AWSCredentialsProvider.class);
+                    AWSCredentialsProvider credentialsProvider = invocation.getArgumentAt(0, AWSCredentialsProvider.class);
                     AWSCredentials credentials = credentialsProvider.getCredentials();
                     assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
                     assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
@@ -203,8 +196,8 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     @Test
     public void testConstructorClientConfiguration() throws Exception {
-        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(ClientConfiguration.class)
-            .withArguments(isA(ClientConfiguration.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
+        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(ClientConfiguration.class).withArguments(isA(ClientConfiguration.class))
+            .then(new Answer<AmazonDynamoDBStreamsClient>() {
 
                 @Override
                 public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
@@ -220,72 +213,62 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
     @Test
     public void testConstructorAWSCredentialsClientConfiguration() throws Exception {
         whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentials.class, ClientConfiguration.class)
-            .withArguments(isA(AWSCredentials.class), isA(ClientConfiguration.class))
-            .then(new Answer<AmazonDynamoDBStreamsClient>() {
+            .withArguments(isA(AWSCredentials.class), isA(ClientConfiguration.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
 
-                @Override
-                public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
-                    AWSCredentials credentials = invocation.getArgumentAt(0, AWSCredentials.class);
-                    ClientConfiguration clientConfiguration = invocation.getArgumentAt(1, ClientConfiguration.class);
-                    assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
-                    assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
-                    assertEquals(CLIENT_CONFIGURATION, clientConfiguration);
-                    return mockClient;
-                }
-            });
+            @Override
+            public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
+                AWSCredentials credentials = invocation.getArgumentAt(0, AWSCredentials.class);
+                ClientConfiguration clientConfiguration = invocation.getArgumentAt(1, ClientConfiguration.class);
+                assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
+                assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
+                assertEquals(CLIENT_CONFIGURATION, clientConfiguration);
+                return mockClient;
+            }
+        });
         new AmazonDynamoDBStreamsAdapterClient(CREDENTIALS, CLIENT_CONFIGURATION);
-        verifyNew(AmazonDynamoDBStreamsClient.class).withArguments(isA(AWSCredentials.class),
-            isA(ClientConfiguration.class));
+        verifyNew(AmazonDynamoDBStreamsClient.class).withArguments(isA(AWSCredentials.class), isA(ClientConfiguration.class));
     }
 
     @Test
     public void testConstructorAWSCredentialsProviderClientConfiguration() throws Exception {
-        whenNew(AmazonDynamoDBStreamsClient.class)
-            .withParameterTypes(AWSCredentialsProvider.class, ClientConfiguration.class)
-            .withArguments(isA(AWSCredentialsProvider.class), isA(ClientConfiguration.class))
-            .then(new Answer<AmazonDynamoDBStreamsClient>() {
+        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentialsProvider.class, ClientConfiguration.class)
+            .withArguments(isA(AWSCredentialsProvider.class), isA(ClientConfiguration.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
 
-                @Override
-                public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
-                    AWSCredentialsProvider credentialsProvider = invocation.getArgumentAt(0,
-                        AWSCredentialsProvider.class);
-                    AWSCredentials credentials = credentialsProvider.getCredentials();
-                    ClientConfiguration clientConfiguration = invocation.getArgumentAt(1, ClientConfiguration.class);
-                    assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
-                    assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
-                    assertEquals(CLIENT_CONFIGURATION, clientConfiguration);
-                    return mockClient;
-                }
-            });
+            @Override
+            public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
+                AWSCredentialsProvider credentialsProvider = invocation.getArgumentAt(0, AWSCredentialsProvider.class);
+                AWSCredentials credentials = credentialsProvider.getCredentials();
+                ClientConfiguration clientConfiguration = invocation.getArgumentAt(1, ClientConfiguration.class);
+                assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
+                assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
+                assertEquals(CLIENT_CONFIGURATION, clientConfiguration);
+                return mockClient;
+            }
+        });
         new AmazonDynamoDBStreamsAdapterClient(CREDENTIALS_PROVIDER, CLIENT_CONFIGURATION);
-        verifyNew(AmazonDynamoDBStreamsClient.class).withArguments(isA(AWSCredentialsProvider.class),
-            isA(ClientConfiguration.class));
+        verifyNew(AmazonDynamoDBStreamsClient.class).withArguments(isA(AWSCredentialsProvider.class), isA(ClientConfiguration.class));
     }
 
     @Test
     public void testConstructorAWSCredentialsProviderClientConfigurationRequestMetricsCollector() throws Exception {
-        whenNew(AmazonDynamoDBStreamsClient.class)
-            .withParameterTypes(AWSCredentialsProvider.class, ClientConfiguration.class, RequestMetricCollector.class)
-            .withArguments(isA(AWSCredentialsProvider.class), isA(ClientConfiguration.class),
-                isA(RequestMetricCollector.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
+        whenNew(AmazonDynamoDBStreamsClient.class).withParameterTypes(AWSCredentialsProvider.class, ClientConfiguration.class, RequestMetricCollector.class)
+            .withArguments(isA(AWSCredentialsProvider.class), isA(ClientConfiguration.class), isA(RequestMetricCollector.class)).then(new Answer<AmazonDynamoDBStreamsClient>() {
 
-                @Override
-                public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
-                    AWSCredentialsProvider credentialsProvider = invocation.getArgumentAt(0,
-                        AWSCredentialsProvider.class);
-                    AWSCredentials credentials = credentialsProvider.getCredentials();
-                    ClientConfiguration clientConfiguration = invocation.getArgumentAt(1, ClientConfiguration.class);
-                    RequestMetricCollector requestMetricCollector = invocation.getArgumentAt(2, RequestMetricCollector.class);
-                    assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
-                    assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
-                    assertEquals(CLIENT_CONFIGURATION, clientConfiguration);
-                    assertEquals(REQUEST_METRIC_COLLECTOR, requestMetricCollector);
-                    return mockClient;
-                }
-            });
+            @Override
+            public AmazonDynamoDBStreamsClient answer(InvocationOnMock invocation) throws Throwable {
+                AWSCredentialsProvider credentialsProvider = invocation.getArgumentAt(0, AWSCredentialsProvider.class);
+                AWSCredentials credentials = credentialsProvider.getCredentials();
+                ClientConfiguration clientConfiguration = invocation.getArgumentAt(1, ClientConfiguration.class);
+                RequestMetricCollector requestMetricCollector = invocation.getArgumentAt(2, RequestMetricCollector.class);
+                assertEquals(DUMMY_ACCESS_KEY, credentials.getAWSAccessKeyId());
+                assertEquals(DUMMY_SECRET_KEY, credentials.getAWSSecretKey());
+                assertEquals(CLIENT_CONFIGURATION, clientConfiguration);
+                assertEquals(REQUEST_METRIC_COLLECTOR, requestMetricCollector);
+                return mockClient;
+            }
+        });
         new AmazonDynamoDBStreamsAdapterClient(CREDENTIALS_PROVIDER, CLIENT_CONFIGURATION, REQUEST_METRIC_COLLECTOR);
-        verifyNew(AmazonDynamoDBStreamsClient.class).withArguments(isA(AWSCredentialsProvider.class),
-            isA(ClientConfiguration.class), isA(RequestMetricCollector.class));
+        verifyNew(AmazonDynamoDBStreamsClient.class).withArguments(isA(AWSCredentialsProvider.class), isA(ClientConfiguration.class), isA(RequestMetricCollector.class));
     }
 
     @Test
@@ -302,10 +285,8 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     @Test
     public void testDescribeStream() {
-        when(mockClient.describeStream(any(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class)))
-            .thenReturn(DESCRIBE_STREAM_RESULT);
-        com.amazonaws.services.kinesis.model.DescribeStreamResult result = adapterClient
-            .describeStream(new DescribeStreamRequest().withStreamName(STREAM_ID));
+        when(mockClient.describeStream(any(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class))).thenReturn(DESCRIBE_STREAM_RESULT);
+        com.amazonaws.services.kinesis.model.DescribeStreamResult result = adapterClient.describeStream(new DescribeStreamRequest().withStreamName(STREAM_ID));
         com.amazonaws.services.kinesis.model.StreamDescription actual = result.getStreamDescription();
         StreamDescription expected = DESCRIBE_STREAM_RESULT.getStreamDescription();
         assertEquals(expected.getStreamArn(), actual.getStreamARN());
@@ -315,21 +296,19 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     @Test
     public void testDescribeStream2() {
-        when(mockClient.describeStream(any(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class)))
-            .thenAnswer(new Answer<DescribeStreamResult>() {
+        when(mockClient.describeStream(any(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class))).thenAnswer(new Answer<DescribeStreamResult>() {
 
-                @Override
-                public DescribeStreamResult answer(InvocationOnMock invocation) throws Throwable {
-                    final com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest request = invocation
-                        .getArgumentAt(0, com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class);
-                    assertEquals(STREAM_0000000, request.getStreamArn());
-                    assertEquals(SHARD_0000000, request.getExclusiveStartShardId());
-                    return DESCRIBE_STREAM_RESULT;
-                }
+            @Override
+            public DescribeStreamResult answer(InvocationOnMock invocation) throws Throwable {
+                final com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest request =
+                    invocation.getArgumentAt(0, com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class);
+                assertEquals(STREAM_0000000, request.getStreamArn());
+                assertEquals(SHARD_0000000, request.getExclusiveStartShardId());
+                return DESCRIBE_STREAM_RESULT;
+            }
 
-            });
-        com.amazonaws.services.kinesis.model.DescribeStreamResult result = adapterClient.describeStream(STREAM_0000000,
-            SHARD_0000000);
+        });
+        com.amazonaws.services.kinesis.model.DescribeStreamResult result = adapterClient.describeStream(STREAM_0000000, SHARD_0000000);
         com.amazonaws.services.kinesis.model.StreamDescription actual = result.getStreamDescription();
         StreamDescription expected = DESCRIBE_STREAM_RESULT.getStreamDescription();
         assertEquals(expected.getStreamArn(), actual.getStreamARN());
@@ -348,21 +327,19 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
     @Test
     public void testGetShardIterator2() {
         final String shardIteratorType = ShardIteratorType.TRIM_HORIZON.toString();
-        when(mockClient.getShardIterator(any(com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class)))
-            .thenAnswer(new Answer<GetShardIteratorResult>() {
-                @Override
-                public GetShardIteratorResult answer(InvocationOnMock invocation) throws Throwable {
-                    com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest request = invocation.getArgumentAt(
-                        0, com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class);
-                    assertEquals(STREAM_ID, request.getStreamArn());
-                    assertEquals(SHARD_0000001, request.getShardId());
-                    assertEquals(shardIteratorType, request.getShardIteratorType());
-                    return new GetShardIteratorResult().withShardIterator(SHARD_ITERATOR);
-                }
+        when(mockClient.getShardIterator(any(com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class))).thenAnswer(new Answer<GetShardIteratorResult>() {
+            @Override
+            public GetShardIteratorResult answer(InvocationOnMock invocation) throws Throwable {
+                com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest request =
+                    invocation.getArgumentAt(0, com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class);
+                assertEquals(STREAM_ID, request.getStreamArn());
+                assertEquals(SHARD_0000001, request.getShardId());
+                assertEquals(shardIteratorType, request.getShardIteratorType());
+                return new GetShardIteratorResult().withShardIterator(SHARD_ITERATOR);
+            }
 
-            });
-        assertEquals(SHARD_ITERATOR, adapterClient.getShardIterator(STREAM_ID, SHARD_0000001, shardIteratorType)
-            .getShardIterator());
+        });
+        assertEquals(SHARD_ITERATOR, adapterClient.getShardIterator(STREAM_ID, SHARD_0000001, shardIteratorType).getShardIterator());
         verify(mockClient).getShardIterator(any(com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class));
     }
 
@@ -388,52 +365,45 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     @Test
     public void testGetRecords() {
-        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(
-            new GetRecordsResult().withRecords(RECORD));
-        com.amazonaws.services.kinesis.model.GetRecordsResult result = adapterClient.getRecords(new GetRecordsRequest()
-            .withShardIterator(TEST_STRING));
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(new GetRecordsResult().withRecords(RECORD));
+        com.amazonaws.services.kinesis.model.GetRecordsResult result = adapterClient.getRecords(new GetRecordsRequest().withShardIterator(TEST_STRING));
         assertEquals(1, result.getRecords().size());
         verify(mockClient).getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class));
     }
 
     @Test
     public void testGetRecordsLimit() {
-        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).then(
-            new Answer<GetRecordsResult>() {
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).then(new Answer<GetRecordsResult>() {
 
-                @Override
-                public GetRecordsResult answer(InvocationOnMock invocation) throws Throwable {
-                    com.amazonaws.services.dynamodbv2.model.GetRecordsRequest request = invocation.getArgumentAt(0,
-                        com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class);
-                    assertEquals(LIMIT, request.getLimit().intValue());
-                    assertEquals(SHARD_ITERATOR, request.getShardIterator());
-                    return new GetRecordsResult().withRecords(RECORD);
-                }
+            @Override
+            public GetRecordsResult answer(InvocationOnMock invocation) throws Throwable {
+                com.amazonaws.services.dynamodbv2.model.GetRecordsRequest request = invocation.getArgumentAt(0, com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class);
+                assertEquals(LIMIT, request.getLimit().intValue());
+                assertEquals(SHARD_ITERATOR, request.getShardIterator());
+                return new GetRecordsResult().withRecords(RECORD);
+            }
 
-            });
-        com.amazonaws.services.kinesis.model.GetRecordsResult result = adapterClient.getRecords(new GetRecordsRequest()
-            .withShardIterator(SHARD_ITERATOR).withLimit(LIMIT));
+        });
+        com.amazonaws.services.kinesis.model.GetRecordsResult result = adapterClient.getRecords(new GetRecordsRequest().withShardIterator(SHARD_ITERATOR).withLimit(LIMIT));
         assertEquals(1, result.getRecords().size());
         verify(mockClient).getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class));
     }
 
     @Test
     public void testGetRecordsLimitExceedDynamoDBStreams() {
-        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).then(
-            new Answer<GetRecordsResult>() {
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).then(new Answer<GetRecordsResult>() {
 
-                @Override
-                public GetRecordsResult answer(InvocationOnMock invocation) throws Throwable {
-                    com.amazonaws.services.dynamodbv2.model.GetRecordsRequest request = invocation.getArgumentAt(0,
-                        com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class);
-                    assertEquals(AmazonDynamoDBStreamsAdapterClient.GET_RECORDS_LIMIT, request.getLimit());
-                    assertEquals(SHARD_ITERATOR, request.getShardIterator());
-                    return new GetRecordsResult().withRecords(RECORD);
-                }
+            @Override
+            public GetRecordsResult answer(InvocationOnMock invocation) throws Throwable {
+                com.amazonaws.services.dynamodbv2.model.GetRecordsRequest request = invocation.getArgumentAt(0, com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class);
+                assertEquals(AmazonDynamoDBStreamsAdapterClient.GET_RECORDS_LIMIT, request.getLimit());
+                assertEquals(SHARD_ITERATOR, request.getShardIterator());
+                return new GetRecordsResult().withRecords(RECORD);
+            }
 
-            });
-        com.amazonaws.services.kinesis.model.GetRecordsResult result = adapterClient.getRecords(new GetRecordsRequest()
-            .withShardIterator(SHARD_ITERATOR).withLimit(KINESIS_GET_RECORDS_LIMIT));
+        });
+        com.amazonaws.services.kinesis.model.GetRecordsResult result =
+            adapterClient.getRecords(new GetRecordsRequest().withShardIterator(SHARD_ITERATOR).withLimit(KINESIS_GET_RECORDS_LIMIT));
         assertEquals(1, result.getRecords().size());
         verify(mockClient).getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class));
     }
@@ -471,26 +441,22 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
     @Test
     public void testListStreams() {
         final ListStreamsResult result = new ListStreamsResult().withStreams(STREAM);
-        when(mockClient.listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class))).thenReturn(
-            result);
+        when(mockClient.listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class))).thenReturn(result);
         adapterClient.listStreams(new ListStreamsRequest());
         verify(mockClient).listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class));
     }
 
     @Test
     public void testListStreams2() {
-        when(mockClient.listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class))).then(
-            new Answer<com.amazonaws.services.dynamodbv2.model.ListStreamsResult>() {
+        when(mockClient.listStreams(any(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class))).then(new Answer<ListStreamsResult>() {
 
-                @Override
-                public com.amazonaws.services.dynamodbv2.model.ListStreamsResult answer(InvocationOnMock invocation)
-                    throws Throwable {
-                    com.amazonaws.services.dynamodbv2.model.ListStreamsRequest request = invocation.getArgumentAt(0,
-                        com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class);
-                    assertEquals(STREAM_0000000, request.getExclusiveStartStreamArn());
-                    return new com.amazonaws.services.dynamodbv2.model.ListStreamsResult().withStreams(STREAM);
-                }
-            });
+            @Override
+            public com.amazonaws.services.dynamodbv2.model.ListStreamsResult answer(InvocationOnMock invocation) throws Throwable {
+                com.amazonaws.services.dynamodbv2.model.ListStreamsRequest request = invocation.getArgumentAt(0, com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class);
+                assertEquals(STREAM_0000000, request.getExclusiveStartStreamArn());
+                return new com.amazonaws.services.dynamodbv2.model.ListStreamsResult().withStreams(STREAM);
+            }
+        });
         com.amazonaws.services.kinesis.model.ListStreamsResult result = adapterClient.listStreams(STREAM_0000000);
         assertEquals(1, result.getStreamNames().size());
         assertEquals(STREAM.getStreamArn(), result.getStreamNames().get(0));
@@ -543,10 +509,7 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
         Map<String, String> responseHeaders = null;
         // Test DescribeStream
         ResponseMetadata expectedResponseMetadata = new ResponseMetadata(responseHeaders);
-        when(
-            mockClient
-                .getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class)))
-            .thenReturn(expectedResponseMetadata);
+        when(mockClient.getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest.class))).thenReturn(expectedResponseMetadata);
         DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
         adapterClient.describeStream(describeStreamRequest);
         ResponseMetadata actualResponseMetadata = adapterClient.getCachedResponseMetadata(describeStreamRequest);
@@ -554,30 +517,21 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
         // Test GetRecords
         expectedResponseMetadata = new ResponseMetadata(responseHeaders);
         GetRecordsRequest getRecordsRequest = new GetRecordsRequest();
-        when(
-            mockClient
-                .getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class)))
-            .thenReturn(expectedResponseMetadata);
+        when(mockClient.getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(expectedResponseMetadata);
         adapterClient.getRecords(getRecordsRequest);
         actualResponseMetadata = adapterClient.getCachedResponseMetadata(getRecordsRequest);
         assertSameObject(expectedResponseMetadata, actualResponseMetadata);
         // Test GetShardIterator
         expectedResponseMetadata = new ResponseMetadata(responseHeaders);
         GetShardIteratorRequest getShardIteratorRequest = new GetShardIteratorRequest();
-        when(
-            mockClient
-                .getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class)))
-            .thenReturn(expectedResponseMetadata);
+        when(mockClient.getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.GetShardIteratorRequest.class))).thenReturn(expectedResponseMetadata);
         adapterClient.getShardIterator(getShardIteratorRequest);
         actualResponseMetadata = adapterClient.getCachedResponseMetadata(getShardIteratorRequest);
         assertSameObject(expectedResponseMetadata, actualResponseMetadata);
         // Test ListStreams
         expectedResponseMetadata = new ResponseMetadata(responseHeaders);
         ListStreamsRequest listStreamsRequest = new ListStreamsRequest();
-        when(
-            mockClient
-                .getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class)))
-            .thenReturn(expectedResponseMetadata);
+        when(mockClient.getCachedResponseMetadata(isNotNull(com.amazonaws.services.dynamodbv2.model.ListStreamsRequest.class))).thenReturn(expectedResponseMetadata);
         adapterClient.listStreams(listStreamsRequest);
         actualResponseMetadata = adapterClient.getCachedResponseMetadata(listStreamsRequest);
         assertSameObject(expectedResponseMetadata, actualResponseMetadata);
@@ -589,13 +543,13 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
         assertEquals(expectedId, actualId);
     }
 
-    @Test (expected = UnsupportedOperationException.class)
-    public void testDescreaseStreamRetentionPeriod () {
+    @Test(expected = UnsupportedOperationException.class)
+    public void testDescreaseStreamRetentionPeriod() {
         adapterClient.decreaseStreamRetentionPeriod(null);
     }
 
-    @Test (expected = UnsupportedOperationException.class)
-    public void testIncreaseStreamRetentionPeriod () {
+    @Test(expected = UnsupportedOperationException.class)
+    public void testIncreaseStreamRetentionPeriod() {
         adapterClient.increaseStreamRetentionPeriod(null);
     }
 

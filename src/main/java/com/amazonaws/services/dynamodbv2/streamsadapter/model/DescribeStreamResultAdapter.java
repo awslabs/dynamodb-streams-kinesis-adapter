@@ -35,8 +35,8 @@ public class DescribeStreamResultAdapter extends DescribeStreamResult {
 
     /**
      * @return Contains the current status of the stream, the stream ARN, an array of
-     *         shard objects that comprise the stream, and states whether there are
-     *         more shards available.
+     * shard objects that comprise the stream, and states whether there are
+     * more shards available.
      */
     @Override
     public StreamDescription getStreamDescription() {

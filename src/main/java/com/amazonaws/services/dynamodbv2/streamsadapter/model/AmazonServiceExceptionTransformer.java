@@ -28,7 +28,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadM
  * AmazonServiceException.
  * </p>
  * Applicable API calls:
- *
+ * <p>
  * <ul>
  * <li>DescribeStream
  * <ul>
@@ -90,17 +90,13 @@ public class AmazonServiceExceptionTransformer {
      * transformed exception's fields to match the original exception. If no transformation occurred, the original
      * exception is returned.
      *
-     * @param original
-     *            The original DynamoDB Streams exception
-     * @param transformed
-     *            The equivalent Kinesis exception that needs its fields updated
+     * @param original    The original DynamoDB Streams exception
+     * @param transformed The equivalent Kinesis exception that needs its fields updated
      * @return The final result of the transformation ready to be thrown by the adapter
      */
-    private static AmazonServiceException applyFields(AmazonServiceException original,
-        AmazonServiceException transformed) {
+    private static AmazonServiceException applyFields(AmazonServiceException original, AmazonServiceException transformed) {
         if (transformed == null) {
-            LOG.error("Could not transform a DynamoDB AmazonServiceException to a compatible Kinesis exception",
-                original);
+            LOG.error("Could not transform a DynamoDB AmazonServiceException to a compatible Kinesis exception", original);
             return original;
         }
         // Here we update the transformed exception fields with the original exception values
@@ -116,9 +112,7 @@ public class AmazonServiceExceptionTransformer {
             transformed.setServiceName(original.getServiceName());
         }
         transformed.setStatusCode(original.getStatusCode());
-        LOG.error(
-            String.format("DynamoDB Streams exception: %s tranformed to Kinesis %s", original.getClass(),
-                transformed.getClass()), original);
+        LOG.error(String.format("DynamoDB Streams exception: %s tranformed to Kinesis %s", original.getClass(), transformed.getClass()), original);
         return transformed;
     }
 
@@ -126,10 +120,9 @@ public class AmazonServiceExceptionTransformer {
      * Builds the error message for a transformed exception. Returns the original error message or an empty String if
      * the original error message was null.
      *
-     * @param ase
-     *            The original exception
+     * @param ase The original exception
      * @return The error message for a transformed exception. Returns the original error message or an empty String if
-     *         the original error message was null.
+     * the original error message was null.
      */
     private static String buildErrorMessage(AmazonServiceException ase) {
         if (ase.getErrorMessage() == null) {
@@ -140,7 +133,7 @@ public class AmazonServiceExceptionTransformer {
 
     /**
      * Transforms Amazon DynamoDB Streams exceptions to compatible Amazon Kinesis exceptions for the DescribeStream API.
-     *
+     * <p>
      * The following transformations are applied: <br>
      * (1) InternalServerError <br>
      * Amazon DynamoDB Streams: {@link com.amazonaws.services.dynamodbv2.model.InternalServerErrorException} <br>
@@ -159,8 +152,7 @@ public class AmazonServiceExceptionTransformer {
      * Amazon Kinesis: {@link com.amazonaws.services.kinesis.model.LimitExceededException} <br>
      * Notes: N/A<br>
      *
-     * @param ase
-     *            The Amazon DynamoDB Streams exception thrown by a DescribeStream call
+     * @param ase The Amazon DynamoDB Streams exception thrown by a DescribeStream call
      * @return A compatible Amazon Kinesis DescribeStream exception
      */
     public static AmazonServiceException transformDynamoDBStreamsToKinesisDescribeStream(AmazonServiceException ase) {
@@ -182,7 +174,7 @@ public class AmazonServiceExceptionTransformer {
 
     /**
      * Transforms Amazon DynamoDB Streams exceptions to compatible Amazon Kinesis exceptions for the GetRecords API.
-     *
+     * <p>
      * The following transformations are applied: <br>
      * (1) ExpiredIterator <br>
      * Amazon DynamoDB Streams: {@link com.amazonaws.services.dynamodbv2.model.ExpiredIteratorException} <br>
@@ -219,14 +211,11 @@ public class AmazonServiceExceptionTransformer {
      * iterator using the GetShardIterator API when an ExpiredIteratorException is thrown. If data loss is unacceptable,
      * an {@link UnableToReadMoreRecordsException} is thrown.<br>
      *
-     * @param ase
-     *            The Amazon DynamoDB Streams exception thrown by a GetRecords call
-     * @param skipRecordsBehavior
-     *            The {@link SkipRecordsBehavior} for the adapter
+     * @param ase                 The Amazon DynamoDB Streams exception thrown by a GetRecords call
+     * @param skipRecordsBehavior The {@link SkipRecordsBehavior} for the adapter
      * @return A compatible Amazon Kinesis GetRecords exception
      */
-    public static AmazonServiceException transformDynamoDBStreamsToKinesisGetRecords(AmazonServiceException ase,
-        SkipRecordsBehavior skipRecordsBehavior) {
+    public static AmazonServiceException transformDynamoDBStreamsToKinesisGetRecords(AmazonServiceException ase, SkipRecordsBehavior skipRecordsBehavior) {
         final AmazonServiceException transformed;
         if (ase == null) {
             return ase;
@@ -236,13 +225,11 @@ public class AmazonServiceExceptionTransformer {
         } else if (ase instanceof InternalServerErrorException) { // (2)
             transformed = new AmazonServiceException(buildErrorMessage(ase), ase);
         } else if (ase instanceof com.amazonaws.services.dynamodbv2.model.LimitExceededException) { // (3)
-            transformed = new com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException(
-                buildErrorMessage(ase));
+            transformed = new com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException(buildErrorMessage(ase));
         } else if (ase instanceof com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException) { // (4)
             transformed = new com.amazonaws.services.kinesis.model.ResourceNotFoundException(buildErrorMessage(ase));
         } else if (DYNAMODB_STREAMS_THROTTLING_EXCEPTION_ERROR_CODE.equals(ase.getErrorCode())) { // (5)
-            transformed = new com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException(
-                buildErrorMessage(ase));
+            transformed = new com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException(buildErrorMessage(ase));
         } else if (ase instanceof com.amazonaws.services.dynamodbv2.model.TrimmedDataAccessException) { // (6)
             if (skipRecordsBehavior == SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON) { // Data loss is acceptable
                 transformed = new com.amazonaws.services.kinesis.model.ExpiredIteratorException(buildErrorMessage(ase));
@@ -258,7 +245,7 @@ public class AmazonServiceExceptionTransformer {
     /**
      * Transforms Amazon DynamoDB Streams exceptions to compatible Amazon Kinesis exceptions for the GetShardIterator
      * API.
-     *
+     * <p>
      * The following transformations are applied: <br>
      * (1) InternalServerError <br>
      * Amazon DynamoDB Streams: {@link com.amazonaws.services.dynamodbv2.model.InternalServerErrorException} <br>
@@ -285,14 +272,11 @@ public class AmazonServiceExceptionTransformer {
      * adapter mimics this behavior by intercepting the exception and retrieving a shard iterator for TRIM_HORIZON. If
      * data loss is unacceptable, an {@link UnableToReadMoreRecordsException} is thrown.<br>
      *
-     * @param ase
-     *            The Amazon DynamoDB Streams exception thrown by a GetRecords call
-     * @param skipRecordsBehavior
-     *            The {@link SkipRecordsBehavior} for the adapter
+     * @param ase                 The Amazon DynamoDB Streams exception thrown by a GetRecords call
+     * @param skipRecordsBehavior The {@link SkipRecordsBehavior} for the adapter
      * @return A compatible Amazon Kinesis GetRecords exception
      */
-    public static AmazonServiceException transformDynamoDBStreamsToKinesisGetShardIterator(AmazonServiceException ase,
-        SkipRecordsBehavior skipRecordsBehavior) {
+    public static AmazonServiceException transformDynamoDBStreamsToKinesisGetShardIterator(AmazonServiceException ase, SkipRecordsBehavior skipRecordsBehavior) {
         final AmazonServiceException transformed;
         if (ase == null) {
             return ase;
@@ -306,8 +290,7 @@ public class AmazonServiceExceptionTransformer {
                 throw new UnableToReadMoreRecordsException(TRIMMED_DATA_KCL_RETRY_MESSAGE, ase);
             }
         } else if (DYNAMODB_STREAMS_THROTTLING_EXCEPTION_ERROR_CODE.equals(ase.getErrorCode())) { // (3)
-            transformed = new com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException(
-                buildErrorMessage(ase));
+            transformed = new com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException(buildErrorMessage(ase));
         } else if (ase instanceof com.amazonaws.services.dynamodbv2.model.TrimmedDataAccessException) { // (4)
             if (skipRecordsBehavior == SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON) {
                 transformed = new com.amazonaws.services.kinesis.model.ResourceNotFoundException(buildErrorMessage(ase));
@@ -322,7 +305,7 @@ public class AmazonServiceExceptionTransformer {
 
     /**
      * Transforms Amazon DynamoDB Streams exceptions to compatible Amazon Kinesis exceptions for the ListStreams API.
-     *
+     * <p>
      * The following transformations are applied: <br>
      * (1) InternalServerError <br>
      * Amazon DynamoDB Streams: {@link com.amazonaws.services.dynamodbv2.model.InternalServerErrorException} <br>
@@ -341,8 +324,7 @@ public class AmazonServiceExceptionTransformer {
      * Amazon Kinesis: {@link com.amazonaws.services.kinesis.model.LimitExceededException} <br>
      * Notes: N/A<br>
      *
-     * @param ase
-     *            The Amazon DynamoDB Streams exception thrown by a ListStreams call
+     * @param ase The Amazon DynamoDB Streams exception thrown by a ListStreams call
      * @return A compatible Amazon Kinesis ListStreams exception
      */
     public static AmazonServiceException transformDynamoDBStreamsToKinesisListStreams(AmazonServiceException ase) {

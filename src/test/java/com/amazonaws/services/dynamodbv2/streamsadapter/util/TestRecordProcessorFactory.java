@@ -14,11 +14,9 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessor;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorFactory;
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory;
 
 /**
  * This implementation of IRecordProcessorFactory creates a variety of
@@ -31,9 +29,9 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
      * The types of record processors which can be created by this factory.
      */
     private enum Processor {
-        REPLICATING,
-        COUNTING
+        REPLICATING, COUNTING
     }
+
 
     private Processor requestedProcessor;
     private RecordProcessorTracker tracker;
@@ -42,8 +40,9 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
     /**
      * Using this constructor will result in the createProcessor method
      * returning a CountingRecordProcessor.
+     *
      * @param tracker RecordProcessorTracker to keep track of the number of
-     *      processed records per shard
+     *                processed records per shard
      */
     public TestRecordProcessorFactory(RecordProcessorTracker tracker) {
         this.tracker = tracker;
@@ -51,21 +50,18 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
     }
 
     private String tableName;
-    private AmazonDynamoDB dynamoDB;
+    private com.amazonaws.services.dynamodbv2.AmazonDynamoDB dynamoDB;
 
     /**
      * Using this constructor will result in the createProcessor method
      * returning a ReplicatingRecordProcessor.
-     * @param credentials AWS credentials used to access DynamoDB
+     *
+     * @param credentials      AWS credentials used to access DynamoDB
      * @param dynamoDBEndpoint DynamoDB endpoint
-     * @param serviceName Used to initialize the DynamoDB client
-     * @param tableName The name of the table used for replication
+     * @param serviceName      Used to initialize the DynamoDB client
+     * @param tableName        The name of the table used for replication
      */
-    public TestRecordProcessorFactory(
-            AWSCredentialsProvider credentials,
-            String dynamoDBEndpoint,
-            String serviceName,
-            String tableName) {
+    public TestRecordProcessorFactory(com.amazonaws.auth.AWSCredentialsProvider credentials, String dynamoDBEndpoint, String serviceName, String tableName) {
         this.tableName = tableName;
         requestedProcessor = Processor.REPLICATING;
 
@@ -77,10 +73,11 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
     /**
      * Using this constructor creates a replicating processor for an
      * embedded(in-memory) instance of DynamoDB local
-     * @param dynamoDB DynamoDB client for embedded DynamoDB instance
+     *
+     * @param dynamoDB  DynamoDB client for embedded DynamoDB instance
      * @param tableName The name of the table used for replication
      */
-    public TestRecordProcessorFactory(AmazonDynamoDB dynamoDB, String tableName) {
+    public TestRecordProcessorFactory(com.amazonaws.services.dynamodbv2.AmazonDynamoDB dynamoDB, String tableName) {
         this.tableName = tableName;
         this.dynamoDB = dynamoDB;
         requestedProcessor = Processor.REPLICATING;
@@ -112,7 +109,8 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
      * @return number of records processed by processRecords
      */
     public int getNumRecordsProcessed() {
-        if (createdProcessor == null) return -1;
+        if (createdProcessor == null)
+            return -1;
         switch (requestedProcessor) {
             case REPLICATING:
                 return ((ReplicatingRecordProcessor) createdProcessor).getNumRecordsProcessed();
@@ -122,7 +120,8 @@ public class TestRecordProcessorFactory implements IRecordProcessorFactory {
     }
 
     public int getNumProcessRecordsCalls() {
-        if (createdProcessor == null) return -1;
+        if (createdProcessor == null)
+            return -1;
         switch (requestedProcessor) {
             case REPLICATING:
                 return ((ReplicatingRecordProcessor) createdProcessor).getNumProcessRecordsCalls();

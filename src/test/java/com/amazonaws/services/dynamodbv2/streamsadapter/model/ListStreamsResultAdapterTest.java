@@ -66,17 +66,17 @@ public class ListStreamsResultAdapterTest {
         assertEquals(TEST_STRING, actual.get(0));
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetStreamNames() {
         adapter.setStreamNames(new java.util.ArrayList<String>());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamNames() {
         adapter.withStreamNames(null, null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamNames2() {
         final Collection<String> streamNames = Collections.emptyList();
         adapter.withStreamNames(streamNames);
@@ -106,12 +106,12 @@ public class ListStreamsResultAdapterTest {
         assertFalse(adapter.isHasMoreStreams());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetHasMoreStreams() {
         adapter.setHasMoreStreams(false);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithHasMoreStreams() {
         adapter.withHasMoreStreams(false);
     }
@@ -134,7 +134,7 @@ public class ListStreamsResultAdapterTest {
     private List<String> extractStreamArns(ListStreamsResult result) {
         List<Stream> streams = result.getStreams();
         List<String> streamArns = new ArrayList<>(streams.size());
-        for(Stream stream: streams) {
+        for (Stream stream : streams) {
             streamArns.add(stream.getStreamArn());
         }
         return streamArns;
@@ -142,14 +142,12 @@ public class ListStreamsResultAdapterTest {
 
     private ListStreamsResult createResult(Boolean withArns) {
         java.util.List<Stream> streams = new java.util.ArrayList<>();
-        if(withArns) {
+        if (withArns) {
             Stream stream = new Stream();
             stream.setStreamArn(TEST_STRING);
             streams.add(stream);
         }
-        return new ListStreamsResult()
-            .withStreams(streams)
-            .withLastEvaluatedStreamArn(TEST_STRING);
+        return new ListStreamsResult().withStreams(streams).withLastEvaluatedStreamArn(TEST_STRING);
     }
 
 }

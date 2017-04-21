@@ -88,9 +88,7 @@ public class GetRecordsRequestAdapterTest {
     }
 
     private GetRecordsRequest createRequest() {
-        return new GetRecordsRequest()
-            .withLimit(TEST_INT)
-            .withShardIterator(TEST_STRING);
+        return new GetRecordsRequest().withLimit(TEST_INT).withShardIterator(TEST_STRING);
     }
 
 }

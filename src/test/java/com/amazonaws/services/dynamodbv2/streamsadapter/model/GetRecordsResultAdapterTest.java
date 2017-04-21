@@ -53,12 +53,12 @@ public class GetRecordsResultAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetNextShardIterator() {
         adapter.setNextShardIterator(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithNextShardIterator() {
         adapter.withNextShardIterator(TEST_STRING);
     }
@@ -86,17 +86,17 @@ public class GetRecordsResultAdapterTest {
         assertEquals(0, recordList.size());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetRecords() {
         adapter.setRecords(null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithRecords() {
         adapter.withRecords(null, null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithRecords2() {
         Collection<com.amazonaws.services.kinesis.model.Record> records = Collections.emptyList();
         adapter.withRecords(records);
@@ -120,12 +120,10 @@ public class GetRecordsResultAdapterTest {
 
     private GetRecordsResult createResult(Boolean withRecord) {
         java.util.List<Record> records = new java.util.ArrayList<Record>();
-        if(withRecord) {
+        if (withRecord) {
             records.add(new Record());
         }
-        return new GetRecordsResult()
-            .withRecords(records)
-            .withNextShardIterator(TEST_STRING);
+        return new GetRecordsResult().withRecords(records).withNextShardIterator(TEST_STRING);
     }
 
 }

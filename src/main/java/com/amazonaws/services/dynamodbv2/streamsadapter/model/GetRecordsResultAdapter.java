@@ -38,16 +38,16 @@ public class GetRecordsResultAdapter extends GetRecordsResult {
     /**
      * Constructs a new result using a DynamoDBStreams object.
      *
-     * @param result Instance of DynamoDBStreams GetRecordsResult
+     * @param result                  Instance of DynamoDBStreams GetRecordsResult
      * @param generateRecordDataBytes Whether or not RecordAdapters should generate the ByteBuffer returned by getData().  KCL
-     * uses the bytes returned by getData to generate throughput metrics.  If these metrics are not needed then
-     * choosing to not generate this data results in memory and CPU savings.
+     *                                uses the bytes returned by getData to generate throughput metrics.  If these metrics are not needed then
+     *                                choosing to not generate this data results in memory and CPU savings.
      */
     public GetRecordsResultAdapter(com.amazonaws.services.dynamodbv2.model.GetRecordsResult result, boolean generateRecordDataBytes) {
         internalResult = result;
         records = new java.util.ArrayList<Record>();
         if (result.getRecords() != null) {
-            for(com.amazonaws.services.dynamodbv2.model.Record record : result.getRecords()) {
+            for (com.amazonaws.services.dynamodbv2.model.Record record : result.getRecords()) {
                 records.add(new RecordAdapter(record, generateRecordDataBytes));
             }
         }
@@ -78,8 +78,8 @@ public class GetRecordsResultAdapter extends GetRecordsResult {
 
     /**
      * @return The next position in the shard from which to start sequentially
-     *         reading data records. If set to <code>null</code>, the shard has been
-     *         closed and the requested iterator will not return any more data.
+     * reading data records. If set to <code>null</code>, the shard has been
+     * closed and the requested iterator will not return any more data.
      */
     @Override
     public String getNextShardIterator() {

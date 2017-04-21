@@ -47,10 +47,8 @@ public class AdapterRequestCache {
     /**
      * Adds an entry to the cache.
      *
-     * @param request
-     *            Kinesis request
-     * @param requestAdapter
-     *            DynamoDB adapter client wrapper for the Kinesis request
+     * @param request        Kinesis request
+     * @param requestAdapter DynamoDB adapter client wrapper for the Kinesis request
      */
     public synchronized void addEntry(AmazonWebServiceRequest request, AmazonWebServiceRequest requestAdapter) {
         if (null == request || null == requestAdapter) {
@@ -67,8 +65,7 @@ public class AdapterRequestCache {
     /**
      * Gets the actual DynamoDB Streams request made for a Kinesis request.
      *
-     * @param request
-     *            Kinesis request
+     * @param request Kinesis request
      * @return actual DynamoDB Streams request made for the associated Kinesis request
      */
     public synchronized AmazonWebServiceRequest getEntry(AmazonWebServiceRequest request) {

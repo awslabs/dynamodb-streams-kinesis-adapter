@@ -33,7 +33,7 @@ public class GetShardIteratorResultAdapterTest {
     private GetShardIteratorResultAdapter adapter;
 
     @Before
-    public void setUpTest(){
+    public void setUpTest() {
         MockitoAnnotations.initMocks(this);
         adapter = new GetShardIteratorResultAdapter(mockResult);
     }
@@ -45,12 +45,12 @@ public class GetShardIteratorResultAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetShardIterator() {
         adapter.setShardIterator(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithShardIterator() {
         adapter.withShardIterator(TEST_STRING);
     }
@@ -63,8 +63,7 @@ public class GetShardIteratorResultAdapterTest {
     }
 
     private GetShardIteratorResult createResult() {
-        return new GetShardIteratorResult()
-            .withShardIterator(TEST_STRING);
+        return new GetShardIteratorResult().withShardIterator(TEST_STRING);
     }
 
 }

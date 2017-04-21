@@ -104,7 +104,7 @@ public class GetShardIteratorRequestAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testSetShardIteratorTypeFailure() {
         adapter.setShardIteratorType(TEST_STRING);
     }
@@ -112,15 +112,13 @@ public class GetShardIteratorRequestAdapterTest {
     @Test
     public void testSetShardIteratorTypeAsTypeAfterSequenceNumber() {
         adapter.setShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER);
-        verify(mockRequest, times(1)).setShardIteratorType(
-                com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
+        verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
     }
 
     @Test
     public void testSetShardIteratorTypeAsTypeAtSequenceNumber() {
         adapter.setShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.AT_SEQUENCE_NUMBER);
-        verify(mockRequest, times(1)).setShardIteratorType(
-                com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
+        verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
     }
 
     @Test
@@ -135,59 +133,55 @@ public class GetShardIteratorRequestAdapterTest {
         verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON.toString());
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testWithShardIteratorTypeFailure() {
         adapter.withShardIteratorType(TEST_STRING);
     }
 
     @Test
-    public void testWithShardIteratorTypeAsStringAfterSequenceNumber(){
+    public void testWithShardIteratorTypeAsStringAfterSequenceNumber() {
         adapter.withShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
-        verify(mockRequest, times(1)).setShardIteratorType(
-                com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
+        verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
     }
 
     @Test
-    public void testWithShardIteratorTypeAsStringAtSequenceNumber(){
+    public void testWithShardIteratorTypeAsStringAtSequenceNumber() {
         adapter.withShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
-        verify(mockRequest, times(1)).setShardIteratorType(
-                com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
+        verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
     }
 
     @Test
-    public void testWithShardIteratorTypeAsStringLatest(){
+    public void testWithShardIteratorTypeAsStringLatest() {
         adapter.withShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.LATEST.toString());
         verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST.toString());
     }
 
     @Test
-    public void testWithShardIteratorTypeAsStringTrimHorizon(){
+    public void testWithShardIteratorTypeAsStringTrimHorizon() {
         adapter.withShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.TRIM_HORIZON.toString());
         verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON.toString());
     }
 
     @Test
-    public void testSetShardIteratorTypeAsStringAfterSequenceNumber(){
+    public void testSetShardIteratorTypeAsStringAfterSequenceNumber() {
         adapter.setShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
-        verify(mockRequest, times(1)).setShardIteratorType(
-                com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
+        verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString());
     }
 
     @Test
-    public void testSetShardIteratorTypeAsStringAtSequenceNumber(){
+    public void testSetShardIteratorTypeAsStringAtSequenceNumber() {
         adapter.setShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
-        verify(mockRequest, times(1)).setShardIteratorType(
-                com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
+        verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString());
     }
 
     @Test
-    public void testSetShardIteratorTypeAsStringLatest(){
+    public void testSetShardIteratorTypeAsStringLatest() {
         adapter.setShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.LATEST.toString());
         verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST.toString());
     }
 
     @Test
-    public void testSetShardIteratorTypeAsStringTrimHorizon(){
+    public void testSetShardIteratorTypeAsStringTrimHorizon() {
         adapter.setShardIteratorType(com.amazonaws.services.dynamodbv2.model.ShardIteratorType.TRIM_HORIZON.toString());
         verify(mockRequest, times(1)).setShardIteratorType(com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON.toString());
     }

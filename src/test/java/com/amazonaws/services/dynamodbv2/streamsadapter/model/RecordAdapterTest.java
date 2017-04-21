@@ -57,24 +57,11 @@ public class RecordAdapterTest {
 
     private static final Date TEST_DATE = new Date(1156377600 /* EC2 Announced */);
 
-    private static final String TEST_RECORD_v1_0 = new StringBuilder().append("{")
-            .append("\"awsRegion\":\"us-east-1\",")
-            .append("\"dynamodb\":")
-            .append("{")
-            .append("\"Keys\":")
-            .append("{")
-            .append("\"hashKey\":{\"S\":\"hashKeyValue\"}")
-            .append("},")
-            .append("\"StreamViewType\":\"NEW_AND_OLD_IMAGES\",")
-            .append("\"SequenceNumber\":\"100000000003498069978\",")
-            .append("\"SizeBytes\":6")
-            .append("},")
-            .append("\"eventID\":\"33fe21d365c03362c5e66d8dec2b63d5\",")
-            .append("\"eventVersion\":\"1.0\",")
-            .append("\"eventName\":\"INSERT\",")
-            .append("\"eventSource\":\"aws:dynamodb\"")
-            .append("}")
-            .toString();
+    private static final String TEST_RECORD_v1_0 =
+        new StringBuilder().append("{").append("\"awsRegion\":\"us-east-1\",").append("\"dynamodb\":").append("{").append("\"Keys\":").append("{")
+            .append("\"hashKey\":{\"S\":\"hashKeyValue\"}").append("},").append("\"StreamViewType\":\"NEW_AND_OLD_IMAGES\",")
+            .append("\"SequenceNumber\":\"100000000003498069978\",").append("\"SizeBytes\":6").append("},").append("\"eventID\":\"33fe21d365c03362c5e66d8dec2b63d5\",")
+            .append("\"eventVersion\":\"1.0\",").append("\"eventName\":\"INSERT\",").append("\"eventSource\":\"aws:dynamodb\"").append("}").toString();
 
     private Record testRecord;
 
@@ -131,8 +118,7 @@ public class RecordAdapterTest {
     @Test
     public void testGetData() throws JsonProcessingException {
         Whitebox.setInternalState(RecordAdapter.class, ObjectMapper.class, MOCK_MAPPER);
-        when(MOCK_MAPPER.writeValueAsString(adapter.getInternalObject())).thenReturn(
-            MAPPER.writeValueAsString(adapter.getInternalObject()));
+        when(MOCK_MAPPER.writeValueAsString(adapter.getInternalObject())).thenReturn(MAPPER.writeValueAsString(adapter.getInternalObject()));
         ByteBuffer data = ByteBuffer.wrap(MAPPER.writeValueAsString(adapter.getInternalObject()).getBytes());
         assertEquals(data, adapter.getData());
         // Retrieve data twice to validate it is only deserialized once
@@ -143,8 +129,7 @@ public class RecordAdapterTest {
     @Test(expected = RuntimeException.class)
     public void testGetDataMappingException() throws JsonProcessingException {
         Whitebox.setInternalState(RecordAdapter.class, ObjectMapper.class, MOCK_MAPPER);
-        when(MOCK_MAPPER.writeValueAsString(adapter.getInternalObject()))
-            .thenThrow(mock(JsonProcessingException.class));
+        when(MOCK_MAPPER.writeValueAsString(adapter.getInternalObject())).thenThrow(mock(JsonProcessingException.class));
         adapter.getData();
     }
 
@@ -199,7 +184,7 @@ public class RecordAdapterTest {
         adapter.withApproximateArrivalTimestamp(TEST_DATE);
         assertEquals(TEST_DATE, deserialized.getDynamodb().getApproximateCreationDateTime());
         assertEquals(TEST_DATE, adapter.getApproximateArrivalTimestamp());
-    };
+    }
 
     @Test
     public void testGetInternalObject() {

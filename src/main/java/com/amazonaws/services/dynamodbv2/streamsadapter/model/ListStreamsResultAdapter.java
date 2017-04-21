@@ -40,10 +40,10 @@ public class ListStreamsResultAdapter extends ListStreamsResult {
      * making the request.
      */
     @Override
-    public java.util.List<String> getStreamNames() {
+    public List<String> getStreamNames() {
         List<com.amazonaws.services.dynamodbv2.model.Stream> streams = internalResult.getStreams();
         List<String> streamArns = new ArrayList<>(streams.size());
-        for(com.amazonaws.services.dynamodbv2.model.Stream stream : streams) {
+        for (com.amazonaws.services.dynamodbv2.model.Stream stream : streams) {
             streamArns.add(stream.getStreamArn());
         }
         return streamArns;

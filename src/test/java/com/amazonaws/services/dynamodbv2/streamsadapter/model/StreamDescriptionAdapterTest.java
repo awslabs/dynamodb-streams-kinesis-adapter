@@ -56,12 +56,12 @@ public class StreamDescriptionAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetStreamName() {
         adapter.setStreamName(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamName() {
         adapter.withStreamName(TEST_STRING);
     }
@@ -73,12 +73,12 @@ public class StreamDescriptionAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetStreamARN() {
         adapter.setStreamARN(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamARN() {
         adapter.withStreamARN(TEST_STRING);
     }
@@ -103,27 +103,27 @@ public class StreamDescriptionAdapterTest {
     }
 
     @Test(expected = UnsupportedOperationException.class)
-    public void testUnsupportedStreamStatus(){
+    public void testUnsupportedStreamStatus() {
         when(mockDescription.getStreamStatus()).thenReturn(TEST_STRING);
         String actual = adapter.getStreamStatus();
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetStreamStatusFailure() {
         adapter.setStreamStatus(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetStreamStatusAsType() {
         adapter.setStreamStatus(com.amazonaws.services.kinesis.model.StreamStatus.CREATING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamStatusFailure() {
         adapter.withStreamStatus(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamStatusAsType() {
         adapter.withStreamStatus(com.amazonaws.services.kinesis.model.StreamStatus.ACTIVE);
     }
@@ -143,17 +143,17 @@ public class StreamDescriptionAdapterTest {
         assertTrue(shardList.isEmpty());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetShards() {
         adapter.setShards(null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithShards() {
         adapter.withShards(null, null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithShards2() {
         final Collection<com.amazonaws.services.kinesis.model.Shard> shards = Collections.emptyList();
         adapter.withShards(shards);
@@ -183,12 +183,12 @@ public class StreamDescriptionAdapterTest {
         assertFalse(adapter.getHasMoreShards());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetHasMoreShards() {
         adapter.setHasMoreShards(false);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithHasMoreShards() {
         adapter.withHasMoreShards(true);
     }
@@ -213,20 +213,17 @@ public class StreamDescriptionAdapterTest {
 
     @Test
     public void testGetInternalObject() {
-        com.amazonaws.services.kinesis.model.StreamDescription kinesisStreamDescription =
-	    new StreamDescriptionAdapter(mockDescription);
+        com.amazonaws.services.kinesis.model.StreamDescription kinesisStreamDescription = new StreamDescriptionAdapter(mockDescription);
         StreamDescription internalObject = ((StreamDescriptionAdapter) kinesisStreamDescription).getInternalObject();
         assertSame(mockDescription, internalObject);
     }
 
     private StreamDescription createStreamDescription(Boolean withShards) {
         java.util.List<Shard> shards = new java.util.ArrayList<Shard>();
-        if(withShards) {
+        if (withShards) {
             shards.add(new Shard());
         }
-        return new StreamDescription()
-            .withStreamArn(TEST_STRING)
-            .withShards(shards);
+        return new StreamDescription().withStreamArn(TEST_STRING).withShards(shards);
     }
 
 }

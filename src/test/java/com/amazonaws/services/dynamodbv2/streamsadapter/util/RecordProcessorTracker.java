@@ -25,7 +25,7 @@ import java.util.Set;
 public class RecordProcessorTracker {
 
     private Set<String> shardIds;
-    private volatile Map<String,Integer> processedRecordCounts;
+    private volatile Map<String, Integer> processedRecordCounts;
 
     /**
      * Constructor.
@@ -34,14 +34,14 @@ public class RecordProcessorTracker {
      */
     public RecordProcessorTracker(Set<String> shardIds) {
         this.shardIds = shardIds;
-        processedRecordCounts = new HashMap<String,Integer>();
+        processedRecordCounts = new HashMap<String, Integer>();
     }
 
     /**
      * Invoked by the IRecordProcessor::shutdown() method.
      *
      * @param shardId The shard ID
-     * @param count The number of records which have been successfully processed
+     * @param count   The number of records which have been successfully processed
      */
     public void shardProcessed(String shardId, Integer count) {
         processedRecordCounts.put(shardId, count);
@@ -55,7 +55,7 @@ public class RecordProcessorTracker {
      */
     public boolean isDoneProcessing() {
         Set<String> processedShards;
-        synchronized(processedRecordCounts) {
+        synchronized (processedRecordCounts) {
             processedShards = processedRecordCounts.keySet();
         }
         return processedShards.equals(shardIds);
@@ -66,7 +66,7 @@ public class RecordProcessorTracker {
      *
      * @return Number of records processed per shard
      */
-    public Map<String,Integer> getProcessedRecordCounts() {
+    public Map<String, Integer> getProcessedRecordCounts() {
         return processedRecordCounts;
     }
 

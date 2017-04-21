@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * A single update notification of a DynamoDB Stream, adapted for use
  * with the Amazon Kinesis model.
- *
+ * <p>
  * This class is designed to be used in a single thread only.
  */
 public class RecordAdapter extends Record {
@@ -57,17 +57,19 @@ public class RecordAdapter extends Record {
 
     /**
      * Constructor for internal use
+     *
      * @param record
      * @param generateDataBytes Whether or not to generate the ByteBuffer returned by getData().  KCL
-     * uses the bytes returned by getData to generate throughput metrics.  If these metrics are not needed then
-     * choosing to not generate this data results in memory and CPU savings.  If this value is true then
-     * the data will be generated.  If false, getData() will return an empty ByteBuffer.
+     *                          uses the bytes returned by getData to generate throughput metrics.  If these metrics are not needed then
+     *                          choosing to not generate this data results in memory and CPU savings.  If this value is true then
+     *                          the data will be generated.  If false, getData() will return an empty ByteBuffer.
      * @throws IOException
      */
     RecordAdapter(com.amazonaws.services.dynamodbv2.model.Record record, boolean generateDataBytes) {
         internalRecord = record;
         this.generateDataBytes = generateDataBytes;
     }
+
     /**
      * @return The underlying DynamoDBStreams object
      */
@@ -102,12 +104,11 @@ public class RecordAdapter extends Record {
      */
     @Override
     public ByteBuffer getData() {
-        if(data == null) {
+        if (data == null) {
             if (generateDataBytes) {
                 try {
                     data = ByteBuffer.wrap(MAPPER.writeValueAsString(internalRecord).getBytes(defaultCharset));
-                }
-                catch (JsonProcessingException e) {
+                } catch (JsonProcessingException e) {
                     final String errorMessage = "Failed to serialize stream record to JSON";
                     LOG.error(errorMessage, e);
                     throw new RuntimeException(errorMessage, e);
@@ -120,12 +121,12 @@ public class RecordAdapter extends Record {
     }
 
     @Override
-    public void setData(java.nio.ByteBuffer data) {
+    public void setData(ByteBuffer data) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Record withData(java.nio.ByteBuffer data) {
+    public Record withData(ByteBuffer data) {
         throw new UnsupportedOperationException();
     }
 
@@ -158,8 +159,7 @@ public class RecordAdapter extends Record {
     }
 
     @Override
-    public Record withApproximateArrivalTimestamp(
-            Date approximateArrivalTimestamp) {
+    public Record withApproximateArrivalTimestamp(Date approximateArrivalTimestamp) {
         setApproximateArrivalTimestamp(approximateArrivalTimestamp);
         return this;
     }

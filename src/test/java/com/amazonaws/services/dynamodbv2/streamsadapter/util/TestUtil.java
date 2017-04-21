@@ -57,23 +57,19 @@ public class TestUtil {
     /**
      * @return StreamId
      */
-    public static String createTable(AmazonDynamoDB client, String tableName, Boolean withStream) {
+    public static String createTable(com.amazonaws.services.dynamodbv2.AmazonDynamoDB client, String tableName, Boolean withStream) {
         java.util.List<AttributeDefinition> attributeDefinitions = new ArrayList<AttributeDefinition>();
         attributeDefinitions.add(new AttributeDefinition().withAttributeName("Id").withAttributeType("N"));
 
         java.util.List<KeySchemaElement> keySchema = new ArrayList<KeySchemaElement>();
         keySchema.add(new KeySchemaElement().withAttributeName("Id").withKeyType(KeyType.HASH));
 
-        ProvisionedThroughput provisionedThroughput = new ProvisionedThroughput()
-            .withReadCapacityUnits(20L).withWriteCapacityUnits(20L);
+        ProvisionedThroughput provisionedThroughput = new ProvisionedThroughput().withReadCapacityUnits(20L).withWriteCapacityUnits(20L);
 
-        CreateTableRequest createTableRequest = new CreateTableRequest()
-            .withTableName(tableName)
-            .withAttributeDefinitions(attributeDefinitions)
-            .withKeySchema(keySchema)
+        CreateTableRequest createTableRequest = new CreateTableRequest().withTableName(tableName).withAttributeDefinitions(attributeDefinitions).withKeySchema(keySchema)
             .withProvisionedThroughput(provisionedThroughput);
 
-        if(withStream) {
+        if (withStream) {
             StreamSpecification streamSpecification = new StreamSpecification();
             streamSpecification.setStreamEnabled(true);
             streamSpecification.setStreamViewType(StreamViewType.NEW_IMAGE);
@@ -83,7 +79,7 @@ public class TestUtil {
         try {
             CreateTableResult result = client.createTable(createTableRequest);
             return result.getTableDescription().getLatestStreamArn();
-        } catch(ResourceInUseException e) {
+        } catch (ResourceInUseException e) {
             return describeTable(client, tableName).getTable().getLatestStreamArn();
         }
     }
@@ -91,7 +87,7 @@ public class TestUtil {
     public static void waitForTableActive(AmazonDynamoDB client, String tableName) throws IllegalStateException {
         Integer retries = 0;
         Boolean created = false;
-        while(!created && retries < 100) {
+        while (!created && retries < 100) {
             DescribeTableResult result = describeTable(client, tableName);
             created = result.getTable().getTableStatus().equals("ACTIVE");
             if (created) {
@@ -99,8 +95,8 @@ public class TestUtil {
             } else {
                 retries++;
                 try {
-                    Thread.sleep(500 + 100*retries);
-                } catch(InterruptedException e) {
+                    Thread.sleep(500 + 100 * retries);
+                } catch (InterruptedException e) {
                     // do nothing
                 }
             }
@@ -109,13 +105,9 @@ public class TestUtil {
     }
 
     public static void updateTable(AmazonDynamoDBClient client, String tableName, Long readCapacity, Long writeCapacity) {
-        ProvisionedThroughput provisionedThroughput = new ProvisionedThroughput()
-            .withReadCapacityUnits(readCapacity)
-            .withWriteCapacityUnits(writeCapacity);
+        ProvisionedThroughput provisionedThroughput = new ProvisionedThroughput().withReadCapacityUnits(readCapacity).withWriteCapacityUnits(writeCapacity);
 
-        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
-            .withTableName(tableName)
-            .withProvisionedThroughput(provisionedThroughput);
+        UpdateTableRequest updateTableRequest = new UpdateTableRequest().withTableName(tableName).withProvisionedThroughput(provisionedThroughput);
 
         client.updateTable(updateTableRequest);
     }
@@ -124,13 +116,8 @@ public class TestUtil {
         return client.describeTable(new DescribeTableRequest().withTableName(tableName));
     }
 
-    public static StreamDescription describeStream(
-            AmazonDynamoDBStreamsClient client,
-            String streamArn,
-            String lastEvaluatedShardId) {
-        DescribeStreamResult result = client.describeStream(
-                new DescribeStreamRequest().withStreamArn(streamArn)
-                    .withExclusiveStartShardId(lastEvaluatedShardId));
+    public static StreamDescription describeStream(AmazonDynamoDBStreamsClient client, String streamArn, String lastEvaluatedShardId) {
+        DescribeStreamResult result = client.describeStream(new DescribeStreamRequest().withStreamArn(streamArn).withExclusiveStartShardId(lastEvaluatedShardId));
         return result.getStreamDescription();
     }
 
@@ -142,10 +129,7 @@ public class TestUtil {
         Map<String, AttributeValue> expressionAttributeValues = new HashMap<String, AttributeValue>();
         expressionAttributeValues.put(":v_id", new AttributeValue().withN(partitionKey));
 
-        QueryRequest queryRequest = new QueryRequest()
-            .withTableName(tableName)
-            .withKeyConditionExpression("Id = :v_id")
-            .withExpressionAttributeValues(expressionAttributeValues);
+        QueryRequest queryRequest = new QueryRequest().withTableName(tableName).withKeyConditionExpression("Id = :v_id").withExpressionAttributeValues(expressionAttributeValues);
 
         return client.query(queryRequest);
     }
@@ -155,16 +139,12 @@ public class TestUtil {
         item.put("Id", new AttributeValue().withN(id));
         item.put("attribute-1", new AttributeValue().withS(val));
 
-        PutItemRequest putItemRequest = new PutItemRequest()
-            .withTableName(tableName)
-            .withItem(item);
+        PutItemRequest putItemRequest = new PutItemRequest().withTableName(tableName).withItem(item);
         client.putItem(putItemRequest);
     }
 
     public static void putItem(AmazonDynamoDB client, String tableName, java.util.Map<String, AttributeValue> items) {
-        PutItemRequest putItemRequest = new PutItemRequest()
-            .withTableName(tableName)
-            .withItem(items);
+        PutItemRequest putItemRequest = new PutItemRequest().withTableName(tableName).withItem(items);
         client.putItem(putItemRequest);
     }
 
@@ -173,15 +153,10 @@ public class TestUtil {
         key.put("Id", new AttributeValue().withN(id));
 
         Map<String, AttributeValueUpdate> attributeUpdates = new HashMap<String, AttributeValueUpdate>();
-        AttributeValueUpdate update = new AttributeValueUpdate()
-            .withAction(AttributeAction.PUT)
-            .withValue(new AttributeValue().withS(val));
+        AttributeValueUpdate update = new AttributeValueUpdate().withAction(AttributeAction.PUT).withValue(new AttributeValue().withS(val));
         attributeUpdates.put("attribute-2", update);
 
-        UpdateItemRequest updateItemRequest = new UpdateItemRequest()
-            .withTableName(tableName)
-            .withKey(key)
-            .withAttributeUpdates(attributeUpdates);
+        UpdateItemRequest updateItemRequest = new UpdateItemRequest().withTableName(tableName).withKey(key).withAttributeUpdates(attributeUpdates);
         client.updateItem(updateItemRequest);
     }
 
@@ -189,23 +164,18 @@ public class TestUtil {
         java.util.Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
         key.put("Id", new AttributeValue().withN(id));
 
-        DeleteItemRequest deleteItemRequest = new DeleteItemRequest()
-            .withTableName(tableName)
-            .withKey(key);
+        DeleteItemRequest deleteItemRequest = new DeleteItemRequest().withTableName(tableName).withKey(key);
         client.deleteItem(deleteItemRequest);
     }
 
-    public static String getShardIterator(AmazonDynamoDBStreamsClient client,String streamArn, String shardId) {
-        GetShardIteratorResult result = client.getShardIterator(
-                new GetShardIteratorRequest().withStreamArn(streamArn)
-                    .withShardId(shardId)
-                    .withShardIteratorType(ShardIteratorType.TRIM_HORIZON));
+    public static String getShardIterator(AmazonDynamoDBStreamsClient client, String streamArn, String shardId) {
+        GetShardIteratorResult result =
+            client.getShardIterator(new GetShardIteratorRequest().withStreamArn(streamArn).withShardId(shardId).withShardIteratorType(ShardIteratorType.TRIM_HORIZON));
         return result.getShardIterator();
     }
 
     public static GetRecordsResult getRecords(AmazonDynamoDBStreamsClient client, String shardIterator) {
-        GetRecordsResult result = client.getRecords(
-                new GetRecordsRequest().withShardIterator(shardIterator));
+        GetRecordsResult result = client.getRecords(new GetRecordsRequest().withShardIterator(shardIterator));
         return result;
     }
 

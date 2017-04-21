@@ -22,21 +22,15 @@ import com.amazonaws.services.dynamodbv2.model.ShardIteratorType;
  */
 public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
     // Evaluate each ShardIteratorType toString() only once.
-    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_AT_SEQUENCE_NUMBER =
-        ShardIteratorType.AT_SEQUENCE_NUMBER.toString();
-    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_AFTER_SEQUENCE_NUMBER =
-        ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_AT_SEQUENCE_NUMBER = ShardIteratorType.AT_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_DYNAMODB_AFTER_SEQUENCE_NUMBER = ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString();
     private static final String SHARD_ITERATOR_TYPE_DYNAMODB_LATEST = ShardIteratorType.LATEST.toString();
     private static final String SHARD_ITERATOR_TYPE_DYNAMODB_TRIM_HORIZON = ShardIteratorType.TRIM_HORIZON.toString();
 
-    private static final String SHARD_ITERATOR_TYPE_KINESIS_AFTER_SEQUENCE_NUMBER =
-        com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString();
-    private static final String SHARD_ITERATOR_TYPE_KINESIS_AT_SEQUENCE_NUMBER =
-        com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString();
-    private static final String SHARD_ITERATOR_TYPE_KINESIS_LATEST =
-        com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST.toString();
-    private static final String SHARD_ITERATOR_TYPE_KINESIS_TRIM_HORIZON =
-        com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_AFTER_SEQUENCE_NUMBER = com.amazonaws.services.kinesis.model.ShardIteratorType.AFTER_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_AT_SEQUENCE_NUMBER = com.amazonaws.services.kinesis.model.ShardIteratorType.AT_SEQUENCE_NUMBER.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_LATEST = com.amazonaws.services.kinesis.model.ShardIteratorType.LATEST.toString();
+    private static final String SHARD_ITERATOR_TYPE_KINESIS_TRIM_HORIZON = com.amazonaws.services.kinesis.model.ShardIteratorType.TRIM_HORIZON.toString();
 
     private com.amazonaws.services.kinesis.model.GetShardIteratorRequest internalRequest;
 
@@ -103,7 +97,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @return The sequence number of the data record in the shard from which to
-     *         start reading from.
+     * start reading from.
      */
     @Override
     public String getSequenceNumber() {
@@ -112,7 +106,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @param sequenceNumber The sequence number of the data record in the shard from which to
-     *         start reading from.
+     *                       start reading from.
      */
     @Override
     public void setSequenceNumber(String sequenceNumber) {
@@ -121,7 +115,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @param sequenceNumber The sequence number of the data record in the shard from which to
-     *         start reading from.
+     *                       start reading from.
      * @return Returns a reference to this object so that method calls can be chained together.
      */
     @Override
@@ -132,7 +126,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @return Determines how the shard iterator is used to start reading data
-     *         records from the shard.
+     * records from the shard.
      */
     @Override
     public String getShardIteratorType() {
@@ -141,17 +135,17 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @param shardIteratorType Determines how the shard iterator is used to start reading data
-     *         records from the shard.
+     *                          records from the shard.
      */
     @Override
     public void setShardIteratorType(String shardIteratorType) {
-        if(SHARD_ITERATOR_TYPE_DYNAMODB_TRIM_HORIZON.equals(shardIteratorType)) {
+        if (SHARD_ITERATOR_TYPE_DYNAMODB_TRIM_HORIZON.equals(shardIteratorType)) {
             internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_TRIM_HORIZON);
-        } else if(SHARD_ITERATOR_TYPE_DYNAMODB_LATEST.equals(shardIteratorType)) {
+        } else if (SHARD_ITERATOR_TYPE_DYNAMODB_LATEST.equals(shardIteratorType)) {
             internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_LATEST);
-        } else if(SHARD_ITERATOR_TYPE_DYNAMODB_AT_SEQUENCE_NUMBER.equals(shardIteratorType)) {
+        } else if (SHARD_ITERATOR_TYPE_DYNAMODB_AT_SEQUENCE_NUMBER.equals(shardIteratorType)) {
             internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_AT_SEQUENCE_NUMBER);
-        } else if(SHARD_ITERATOR_TYPE_DYNAMODB_AFTER_SEQUENCE_NUMBER.equals(shardIteratorType)) {
+        } else if (SHARD_ITERATOR_TYPE_DYNAMODB_AFTER_SEQUENCE_NUMBER.equals(shardIteratorType)) {
             internalRequest.setShardIteratorType(SHARD_ITERATOR_TYPE_KINESIS_AFTER_SEQUENCE_NUMBER);
         } else {
             throw new IllegalArgumentException("Unsupported ShardIteratorType: " + shardIteratorType);
@@ -160,7 +154,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @param shardIteratorType Determines how the shard iterator is used to start reading data
-     *         records from the shard.
+     *                          records from the shard.
      */
     @Override
     public void setShardIteratorType(ShardIteratorType shardIteratorType) {
@@ -169,7 +163,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @param shardIteratorType Determines how the shard iterator is used to start reading data
-     *         records from the shard.
+     *                          records from the shard.
      * @return Returns a reference to this object so that method calls can be chained together.
      */
     @Override
@@ -180,7 +174,7 @@ public class GetShardIteratorRequestAdapter extends GetShardIteratorRequest {
 
     /**
      * @param shardIteratorType Determines how the shard iterator is used to start reading data
-     *         records from the shard.
+     *                          records from the shard.
      * @return Returns a reference to this object so that method calls can be chained together.
      */
     @Override

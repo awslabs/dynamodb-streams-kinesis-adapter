@@ -55,13 +55,11 @@ public class KinesisClientLibraryRecordDeserializationTests {
     private static final String SHARD_ID = "shard-000000";
     private static final String SEQUENCE_NUMBER_0 = "0000000000000000";
     private static final String SHARD_ITERATOR = "iterator-0000000000";
-    private static final Shard SHARD = new Shard().withShardId(SHARD_ID).withSequenceNumberRange(
-        new SequenceNumberRange().withStartingSequenceNumber(SEQUENCE_NUMBER_0));
-    private static final StreamDescription STREAM_DESCRIPTION = new StreamDescription().withCreationRequestDateTime(new Date()).withKeySchema()
-        .withShards(SHARD).withStreamArn(STREAM_NAME).withStreamStatus(StreamStatus.ENABLED);
+    private static final Shard SHARD = new Shard().withShardId(SHARD_ID).withSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber(SEQUENCE_NUMBER_0));
+    private static final StreamDescription STREAM_DESCRIPTION =
+        new StreamDescription().withCreationRequestDateTime(new Date()).withKeySchema().withShards(SHARD).withStreamArn(STREAM_NAME).withStreamStatus(StreamStatus.ENABLED);
     private static final StreamRecord STREAM_RECORD_0 = new StreamRecord().withSequenceNumber(SEQUENCE_NUMBER_0);
-    private static final com.amazonaws.services.dynamodbv2.model.Record RECORD_0 = new com.amazonaws.services.dynamodbv2.model.Record()
-        .withDynamodb(STREAM_RECORD_0);
+    private static final com.amazonaws.services.dynamodbv2.model.Record RECORD_0 = new com.amazonaws.services.dynamodbv2.model.Record().withDynamodb(STREAM_RECORD_0);
     private static final List<com.amazonaws.services.dynamodbv2.model.Record> RECORDS = Arrays.asList(RECORD_0);
 
     /* Mocking the DynamoDB Streams client, Kinesis Client Library checkpoint interfaces, and Record Processor */
@@ -72,30 +70,29 @@ public class KinesisClientLibraryRecordDeserializationTests {
 
     /* Construct higher level Kinesis Client Library objects from the primitive mocks */
     private static final AmazonDynamoDBStreamsAdapterClient ADAPTER_CLIENT = new AmazonDynamoDBStreamsAdapterClient(DYNAMODB_STREAMS);
-    private static final IKinesisProxy KINESIS_PROXY = new KinesisProxyFactory(new StaticCredentialsProvider(new BasicAWSCredentials("NotAnAccessKey",
-        "NotASecretKey")), ADAPTER_CLIENT).getProxy(STREAM_NAME);
-    private static final ShardInfo SHARD_INFO = new ShardInfo(SHARD_ID, "concurrencyToken", new ArrayList<String>());
+    private static final IKinesisProxy KINESIS_PROXY =
+        new KinesisProxyFactory(new StaticCredentialsProvider(new BasicAWSCredentials("NotAnAccessKey", "NotASecretKey")), ADAPTER_CLIENT).getProxy(STREAM_NAME);
+    private static final ShardInfo SHARD_INFO = new ShardInfo(SHARD_ID, "concurrencyToken", new ArrayList<String>(), null /*checkpoint*/);
     private static final ExtendedSequenceNumber EXTENDED_SEQUENCE_NUMBER = new ExtendedSequenceNumber(SEQUENCE_NUMBER_0);
     private static final KinesisDataFetcher KINESIS_DATA_FETCHER = new KinesisDataFetcher(KINESIS_PROXY, SHARD_INFO);
-    private static final StreamConfig STREAM_CONFIG = new StreamConfig(KINESIS_PROXY, 1000/* RecordLimit */, 0l /* IdleTimeMillis */,
-        false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */, InitialPositionInStream.TRIM_HORIZON);
+    private static final StreamConfig STREAM_CONFIG =
+        new StreamConfig(KINESIS_PROXY, 1000/* RecordLimit */, 0l /* IdleTimeMillis */, false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */,
+            InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
 
     @Test
     public void testVerifyKCLProvidesRecordAdapter() throws KinesisClientLibException {
         // Setup mocks
         when(CHECKPOINT.getCheckpoint(SHARD_ID)).thenReturn(ExtendedSequenceNumber.TRIM_HORIZON);
         when(CHECKPOINTER.getLastCheckpointValue()).thenReturn(ExtendedSequenceNumber.TRIM_HORIZON);
-        when(DYNAMODB_STREAMS.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(new DescribeStreamResult().withStreamDescription(STREAM_DESCRIPTION));
+        when(DYNAMODB_STREAMS.describeStream(any(DescribeStreamRequest.class))).thenReturn(new DescribeStreamResult().withStreamDescription(STREAM_DESCRIPTION));
         when(DYNAMODB_STREAMS.getShardIterator(any(GetShardIteratorRequest.class))).thenReturn(new GetShardIteratorResult().withShardIterator(SHARD_ITERATOR));
-        when(DYNAMODB_STREAMS.getRecords(any(GetRecordsRequest.class))).thenReturn(
-            new GetRecordsResult().withNextShardIterator(SHARD_ITERATOR).withRecords(RECORDS));
+        when(DYNAMODB_STREAMS.getRecords(any(GetRecordsRequest.class))).thenReturn(new GetRecordsResult().withNextShardIterator(SHARD_ITERATOR).withRecords(RECORDS));
 
         // Initialize the Record Processor
-        InitializeTask initializeTask = new InitializeTask(SHARD_INFO, RECORD_PROCESSOR, CHECKPOINT, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */);
+        InitializeTask initializeTask = new InitializeTask(SHARD_INFO, RECORD_PROCESSOR, CHECKPOINT, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, STREAM_CONFIG);
         initializeTask.call();
         // Execute process task
-        ProcessTask processTask = new ProcessTask(SHARD_INFO, STREAM_CONFIG, RECORD_PROCESSOR, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */);
+        ProcessTask processTask = new ProcessTask(SHARD_INFO, STREAM_CONFIG, RECORD_PROCESSOR, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, false /*skipShardSyncAtWorkerInitializationIfLeasesExist*/);
         processTask.call();
 
         // Verify mocks

@@ -48,12 +48,12 @@ public class DescribeStreamResultAdapterTest {
         assertTrue(streamDescription instanceof StreamDescriptionAdapter);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetStreamDescription() {
         adapter.setStreamDescription(null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithStreamDescription() {
         adapter.withStreamDescription(null);
     }

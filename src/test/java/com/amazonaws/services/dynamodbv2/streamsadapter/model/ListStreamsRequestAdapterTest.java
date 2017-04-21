@@ -26,7 +26,7 @@ import org.mockito.MockitoAnnotations;
 import com.amazonaws.services.kinesis.model.ListStreamsRequest;
 
 public class ListStreamsRequestAdapterTest {
-    private final String TEST_STRING ="TestString";
+    private final String TEST_STRING = "TestString";
 
     private final Integer TEST_INT = 42;
 
@@ -60,17 +60,17 @@ public class ListStreamsRequestAdapterTest {
         assertEquals(adapter, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testGetTableName() {
         adapter.getTableName();
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetTableName() {
         adapter.setTableName(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithTableName() {
         adapter.withTableName(TEST_STRING);
     }
@@ -103,9 +103,7 @@ public class ListStreamsRequestAdapterTest {
     }
 
     private ListStreamsRequest createRequest() {
-        return new ListStreamsRequest()
-            .withExclusiveStartStreamName(TEST_STRING)
-            .withLimit(TEST_INT);
+        return new ListStreamsRequest().withExclusiveStartStreamName(TEST_STRING).withLimit(TEST_INT);
     }
 
 }

@@ -20,7 +20,6 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
@@ -96,6 +95,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
     private final AdapterRequestCache requestCache = new AdapterRequestCache(REQUEST_CACHE_CAPACITY);
 
+
     /**
      * Enum values decides the behavior of application when customer loses some records when KCL lags behind
      */
@@ -103,23 +103,23 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
         /**
          * Skips processing to the oldest available record
          */
-        SKIP_RECORDS_TO_TRIM_HORIZON,
-        /**
+        SKIP_RECORDS_TO_TRIM_HORIZON, /**
          * Throws an exception to KCL, which retries (infinitely) to fetch the data
          */
         KCL_RETRY;
     }
 
+
     private SkipRecordsBehavior skipRecordsBehavior = SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON;
 
     /**
      * Whether or not to generate the ByteBuffer returned by
-     *   RecordAdapter::getData().  KCL uses the bytes returned by getData to
-     *   generate throughput metrics.  If these metrics are not needed then
-     *   choosing to not generate this data results in memory and CPU savings.
-     *   If this value is true then the data will be generated and KCL will generate
-     *   a correct throughput metric.  If this is false, getData()
-     *   will return an empty ByteBuffer and the KCL metric will always be zero.
+     * RecordAdapter::getData().  KCL uses the bytes returned by getData to
+     * generate throughput metrics.  If these metrics are not needed then
+     * choosing to not generate this data results in memory and CPU savings.
+     * If this value is true then the data will be generated and KCL will generate
+     * a correct throughput metric.  If this is false, getData()
+     * will return an empty ByteBuffer and the KCL metric will always be zero.
      */
     private boolean generateRecordBytes = true;
 
@@ -133,9 +133,8 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     /**
      * Constructs a new client to invoke service methods on DynamoDB Streams.
      *
-     * @param clientConfiguration
-     *            The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
-     *            settings, retry counts, etc.).
+     * @param clientConfiguration The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
+     *                            settings, retry counts, etc.).
      */
     public AmazonDynamoDBStreamsAdapterClient(ClientConfiguration clientConfiguration) {
         internalClient = new AmazonDynamoDBStreamsClient(clientConfiguration);
@@ -144,8 +143,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     /**
      * Constructs a new client to invoke service methods on DynamoDB Streams.
      *
-     * @param awsCredentials
-     *            The AWS credentials (access key ID and secret key) to use when authenticating with AWS services.
+     * @param awsCredentials The AWS credentials (access key ID and secret key) to use when authenticating with AWS services.
      */
     public AmazonDynamoDBStreamsAdapterClient(AWSCredentials awsCredentials) {
         internalClient = new AmazonDynamoDBStreamsClient(awsCredentials);
@@ -154,11 +152,9 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     /**
      * Constructs a new client to invoke service methods on DynamoDB Streams.
      *
-     * @param awsCredentials
-     *            The AWS credentials (access key ID and secret key) to use when authenticating with AWS services.
-     * @param clientConfiguration
-     *            The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
-     *            settings, retry counts, etc.).
+     * @param awsCredentials      The AWS credentials (access key ID and secret key) to use when authenticating with AWS services.
+     * @param clientConfiguration The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
+     *                            settings, retry counts, etc.).
      */
     public AmazonDynamoDBStreamsAdapterClient(AWSCredentials awsCredentials, ClientConfiguration clientConfiguration) {
         internalClient = new AmazonDynamoDBStreamsClient(awsCredentials, clientConfiguration);
@@ -167,9 +163,8 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     /**
      * Constructs a new client to invoke service methods on DynamoDB Streams.
      *
-     * @param awsCredentialsProvider
-     *            The AWS credentials provider which will provide credentials to authenticate requests with AWS
-     *            services.
+     * @param awsCredentialsProvider The AWS credentials provider which will provide credentials to authenticate requests with AWS
+     *                               services.
      */
     public AmazonDynamoDBStreamsAdapterClient(AWSCredentialsProvider awsCredentialsProvider) {
         internalClient = new AmazonDynamoDBStreamsClient(awsCredentialsProvider);
@@ -178,42 +173,35 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     /**
      * Constructs a new client to invoke service methods on DynamoDB Streams.
      *
-     * @param awsCredentialsProvider
-     *            The AWS credentials provider which will provide credentials to authenticate requests with AWS
-     *            services.
-     * @param clientConfiguration
-     *            The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
-     *            settings, retry counts, etc.).
+     * @param awsCredentialsProvider The AWS credentials provider which will provide credentials to authenticate requests with AWS
+     *                               services.
+     * @param clientConfiguration    The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
+     *                               settings, retry counts, etc.).
      */
-    public AmazonDynamoDBStreamsAdapterClient(AWSCredentialsProvider awsCredentialsProvider,
-        ClientConfiguration clientConfiguration) {
+    public AmazonDynamoDBStreamsAdapterClient(AWSCredentialsProvider awsCredentialsProvider, ClientConfiguration clientConfiguration) {
         internalClient = new AmazonDynamoDBStreamsClient(awsCredentialsProvider, clientConfiguration);
     }
 
     /**
      * Constructs a new client to invoke service methods on DynamoDB Streams.
      *
-     * @param awsCredentialsProvider
-     *            The AWS credentials provider which will provide credentials to authenticate requests with AWS
-     *            services.
-     * @param clientConfiguration
-     *            The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
-     *            settings, retry counts, etc.).
-     * @param requestMetricCollector
-     *            Optional request metric collector
+     * @param awsCredentialsProvider The AWS credentials provider which will provide credentials to authenticate requests with AWS
+     *                               services.
+     * @param clientConfiguration    The client configuration options controlling how this client connects to DynamoDB Streams (ex: proxy
+     *                               settings, retry counts, etc.).
+     * @param requestMetricCollector Optional request metric collector
      */
-    public AmazonDynamoDBStreamsAdapterClient(AWSCredentialsProvider awsCredentialsProvider,
-        ClientConfiguration clientConfiguration, RequestMetricCollector requestMetricCollector) {
-        internalClient = new AmazonDynamoDBStreamsClient(awsCredentialsProvider, clientConfiguration,
-            requestMetricCollector);
+    public AmazonDynamoDBStreamsAdapterClient(AWSCredentialsProvider awsCredentialsProvider, ClientConfiguration clientConfiguration,
+        RequestMetricCollector requestMetricCollector) {
+        internalClient = new AmazonDynamoDBStreamsClient(awsCredentialsProvider, clientConfiguration, requestMetricCollector);
     }
 
     /**
      * Recommended constructor for AmazonDynamoDBStreamsAdapterClient which takes in an AmazonDynamoDBStreams
      * interface. If you need to execute setEndpoint(String,String,String) or setServiceNameIntern() methods,
      * you should do that on AmazonDynamoDBStreamsClient implementation before passing it in this constructor.
-     * @param amazonDynamoDBStreams
-     *            The DynamoDB Streams to be used internally
+     *
+     * @param amazonDynamoDBStreams The DynamoDB Streams to be used internally
      */
     public AmazonDynamoDBStreamsAdapterClient(AmazonDynamoDBStreams amazonDynamoDBStreams) {
         internalClient = amazonDynamoDBStreams;
@@ -223,8 +211,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
      * Overrides the default endpoint for this client. Callers can use this method to control which AWS region they want
      * to work with.
      *
-     * @param endpoint
-     *            The region specific AWS endpoint this client will communicate with.
+     * @param endpoint The region specific AWS endpoint this client will communicate with.
      */
     @Override
     public void setEndpoint(String endpoint) {
@@ -245,22 +232,22 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
      * usually be called immediately after instantiating this client.  If this method is called from
      * one thread while a GetRecords call is in progress on another thread then the behavior will be
      * non-deterministic.
+     *
      * @param generateRecordBytes Whether or not to generate the ByteBuffer returned by
-     *                      RecordAdapter::getData().  KCL uses the bytes returned by getData to
-     *                      generate throughput metrics.  If these metrics are not needed then
-     *                      choosing to not generate this data results in memory and CPU savings.
-     *                      If this value is true then the data will be generated and KCL will generate
-     *                      a correct throughput metric.  If this is false, getData()
-     *                      will return an empty ByteBuffer and the KCL metric will always be zero.
+     *                            RecordAdapter::getData().  KCL uses the bytes returned by getData to
+     *                            generate throughput metrics.  If these metrics are not needed then
+     *                            choosing to not generate this data results in memory and CPU savings.
+     *                            If this value is true then the data will be generated and KCL will generate
+     *                            a correct throughput metric.  If this is false, getData()
+     *                            will return an empty ByteBuffer and the KCL metric will always be zero.
      */
     public void setGenerateRecordBytes(boolean generateRecordBytes) {
         this.generateRecordBytes = generateRecordBytes;
     }
 
     /**
-     * @param describeStreamRequest
-     *            Container for the necessary parameters to execute the DescribeStream service method on DynamoDB
-     *            Streams.
+     * @param describeStreamRequest Container for the necessary parameters to execute the DescribeStream service method on DynamoDB
+     *                              Streams.
      * @return The response from the DescribeStream service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -282,23 +269,17 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
             // sequence number of all leaf nodes in the shard tree to null.
             List<Shard> allShards = getAllShardsForDisabledStream(result);
             markLeafShardsAsActive(allShards);
-            StreamDescription newStreamDescription = new StreamDescription().withShards(allShards)
-                .withLastEvaluatedShardId(null)
-                .withCreationRequestDateTime(result.getStreamDescription().getCreationRequestDateTime())
-                .withKeySchema(result.getStreamDescription().getKeySchema())
-                .withStreamArn(result.getStreamDescription().getStreamArn())
-                .withStreamLabel(result.getStreamDescription().getStreamLabel())
-                .withStreamStatus(result.getStreamDescription().getStreamStatus())
-                .withTableName(result.getStreamDescription().getTableName())
-                .withStreamViewType(result.getStreamDescription().getStreamViewType());
-            result = new com.amazonaws.services.dynamodbv2.model.DescribeStreamResult()
-                .withStreamDescription(newStreamDescription);
+            StreamDescription newStreamDescription =
+                new StreamDescription().withShards(allShards).withLastEvaluatedShardId(null).withCreationRequestDateTime(result.getStreamDescription().getCreationRequestDateTime())
+                    .withKeySchema(result.getStreamDescription().getKeySchema()).withStreamArn(result.getStreamDescription().getStreamArn())
+                    .withStreamLabel(result.getStreamDescription().getStreamLabel()).withStreamStatus(result.getStreamDescription().getStreamStatus())
+                    .withTableName(result.getStreamDescription().getTableName()).withStreamViewType(result.getStreamDescription().getStreamViewType());
+            result = new com.amazonaws.services.dynamodbv2.model.DescribeStreamResult().withStreamDescription(newStreamDescription);
         }
         return new DescribeStreamResultAdapter(result);
     }
 
-    private List<Shard> getAllShardsForDisabledStream(
-        com.amazonaws.services.dynamodbv2.model.DescribeStreamResult initialResult) {
+    private List<Shard> getAllShardsForDisabledStream(com.amazonaws.services.dynamodbv2.model.DescribeStreamResult initialResult) {
         List<Shard> shards = new ArrayList<Shard>();
         shards.addAll(initialResult.getStreamDescription().getShards());
 
@@ -308,9 +289,8 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
         // leaf nodes. In order to avoid pagination issues when feigning shard activity, we collect all
         // shards in the adapter and return them at once.
         while (result.getStreamDescription().getLastEvaluatedShardId() != null) {
-            request = new com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest().withStreamArn(
-                result.getStreamDescription().getStreamArn()).withExclusiveStartShardId(
-                result.getStreamDescription().getLastEvaluatedShardId());
+            request = new com.amazonaws.services.dynamodbv2.model.DescribeStreamRequest().withStreamArn(result.getStreamDescription().getStreamArn())
+                .withExclusiveStartShardId(result.getStreamDescription().getLastEvaluatedShardId());
             try {
                 result = internalClient.describeStream(request);
             } catch (AmazonServiceException e) {
@@ -337,8 +317,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param streamName
-     *            The ID of the stream to describe.
+     * @param streamName The ID of the stream to describe.
      * @return The response from the DescribeStream service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -347,10 +326,8 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param streamName
-     *            The ID of the stream to describe.
-     * @param exclusiveStartShardId
-     *            The shard ID of the shard to start with for the stream description.
+     * @param streamName            The ID of the stream to describe.
+     * @param exclusiveStartShardId The shard ID of the shard to start with for the stream description.
      * @return The response from the DescribeStream service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -359,12 +336,9 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param streamName
-     *            The ID of the stream to describe.
-     * @param limit
-     *            The maximum number of shards to return.
-     * @param exclusiveStartShardId
-     *            The shard ID of the shard to start with for the stream description.
+     * @param streamName            The ID of the stream to describe.
+     * @param limit                 The maximum number of shards to return.
+     * @param exclusiveStartShardId The shard ID of the shard to start with for the stream description.
      * @return The response from the DescribeStream service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -377,9 +351,8 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param getShardIteratorRequest
-     *            Container for the necessary parameters to execute the GetShardIterator service method on DynamoDB
-     *            Streams.
+     * @param getShardIteratorRequest Container for the necessary parameters to execute the GetShardIterator service method on DynamoDB
+     *                                Streams.
      * @return The response from the GetShardIterator service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -388,38 +361,29 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
         requestCache.addEntry(getShardIteratorRequest, requestAdapter);
 
         try {
-            com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult result = internalClient
-                .getShardIterator(requestAdapter);
+            com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult result = internalClient.getShardIterator(requestAdapter);
             return new GetShardIteratorResultAdapter(result);
         } catch (TrimmedDataAccessException e) {
             if (skipRecordsBehavior == SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON) {
                 if (getShardIteratorRequest.getShardIteratorType().equals(ShardIteratorType.TRIM_HORIZON.toString())) {
-                    throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(e,
-                        skipRecordsBehavior);
+                    throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(e, skipRecordsBehavior);
                 }
-                LOG.warn(String.format(
-                    "Data has been trimmed. Intercepting DynamoDB exception and retrieving a fresh iterator %s",
-                    getShardIteratorRequest), e);
+                LOG.warn(String.format("Data has been trimmed. Intercepting DynamoDB exception and retrieving a fresh iterator %s", getShardIteratorRequest), e);
                 getShardIteratorRequest.setShardIteratorType(ShardIteratorType.TRIM_HORIZON);
                 getShardIteratorRequest.setStartingSequenceNumber(null);
                 return getShardIterator(getShardIteratorRequest);
             } else {
-                throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(e,
-                    skipRecordsBehavior);
+                throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(e, skipRecordsBehavior);
             }
         } catch (AmazonServiceException e) {
-            throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(e,
-                skipRecordsBehavior);
+            throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(e, skipRecordsBehavior);
         }
     }
 
     /**
-     * @param streamName
-     *            The ID of the stream.
-     * @param shardId
-     *            The shard ID of the shard to get the iterator for
-     * @param shardIteratorType
-     *            Determines how the shard iterator is used to start reading data records from the shard.
+     * @param streamName        The ID of the stream.
+     * @param shardId           The shard ID of the shard to get the iterator for
+     * @param shardIteratorType Determines how the shard iterator is used to start reading data records from the shard.
      * @return The response from the GetShardIterator service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -428,19 +392,14 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param streamName
-     *            The ID of the stream.
-     * @param shardId
-     *            The shard ID of the shard to get the iterator for
-     * @param shardIteratorType
-     *            Determines how the shard iterator is used to start reading data records from the shard.
-     * @param startingSequenceNumber
-     *            The sequence number of the data record in the shard from which to start reading from.
+     * @param streamName             The ID of the stream.
+     * @param shardId                The shard ID of the shard to get the iterator for
+     * @param shardIteratorType      Determines how the shard iterator is used to start reading data records from the shard.
+     * @param startingSequenceNumber The sequence number of the data record in the shard from which to start reading from.
      * @return The response from the GetShardIterator service method, adapted for use with the AmazonKinesis model.
      */
     @Override
-    public GetShardIteratorResult getShardIterator(String streamName, String shardId, String shardIteratorType,
-        String startingSequenceNumber) {
+    public GetShardIteratorResult getShardIterator(String streamName, String shardId, String shardIteratorType, String startingSequenceNumber) {
         GetShardIteratorRequest request = new GetShardIteratorRequest();
         request.setStreamName(streamName);
         request.setShardId(shardId);
@@ -463,8 +422,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
     // Not supported by the underlying Streams model
     @Override
-    public PutRecordResult putRecord(String streamName, java.nio.ByteBuffer data, String partitionKey,
-        String sequenceNumberForOrdering) {
+    public PutRecordResult putRecord(String streamName, java.nio.ByteBuffer data, String partitionKey, String sequenceNumberForOrdering) {
         throw new UnsupportedOperationException();
     }
 
@@ -475,9 +433,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     *
-     * @param getRecordsRequest
-     *            Container for the necessary parameters to execute the GetRecords service method on DynamoDB Streams.
+     * @param getRecordsRequest Container for the necessary parameters to execute the GetRecords service method on DynamoDB Streams.
      * @return The response from the GetRecords service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -532,8 +488,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param listStreamsRequest
-     *            Container for the necessary parameters to execute the ListStreams service method on DynamoDB Streams.
+     * @param listStreamsRequest Container for the necessary parameters to execute the ListStreams service method on DynamoDB Streams.
      * @return The response from the ListStreams service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -541,8 +496,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
         ListStreamsRequestAdapter requestAdapter = new ListStreamsRequestAdapter(listStreamsRequest);
         requestCache.addEntry(listStreamsRequest, requestAdapter);
         try {
-            com.amazonaws.services.dynamodbv2.model.ListStreamsResult result = internalClient
-                .listStreams(requestAdapter);
+            com.amazonaws.services.dynamodbv2.model.ListStreamsResult result = internalClient.listStreams(requestAdapter);
             return new ListStreamsResultAdapter(result);
         } catch (AmazonServiceException e) {
             throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisListStreams(e);
@@ -559,8 +513,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param exclusiveStartStreamName
-     *            The name of the stream to start the list with.
+     * @param exclusiveStartStreamName The name of the stream to start the list with.
      * @return The response from the ListStreams service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -569,10 +522,8 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param limit
-     *            The maximum number of streams to list.
-     * @param exclusiveStartStreamName
-     *            The name of the stream to start the list with.
+     * @param limit                    The maximum number of streams to list.
+     * @param exclusiveStartStreamName The name of the stream to start the list with.
      * @return The response from the ListStreams service method, adapted for use with the AmazonKinesis model.
      */
     @Override
@@ -624,8 +575,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
     }
 
     /**
-     * @param request
-     *            The originally executed request.
+     * @param request The originally executed request.
      * @return The response metadata for the specified request, or null if none is available.
      */
     @Override
@@ -635,6 +585,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
     /**
      * Gets the value of {@link SkipRecordsBehavior}.
+     *
      * @return The value of {@link SkipRecordsBehavior}
      */
     public SkipRecordsBehavior getSkipRecordsBehavior() {
@@ -656,15 +607,13 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
     // Not supported by the underlying Streams model
     @Override
-    public DecreaseStreamRetentionPeriodResult decreaseStreamRetentionPeriod(
-           DecreaseStreamRetentionPeriodRequest decreaseStreamRetentionPeriodRequest) {
+    public DecreaseStreamRetentionPeriodResult decreaseStreamRetentionPeriod(DecreaseStreamRetentionPeriodRequest decreaseStreamRetentionPeriodRequest) {
         throw new UnsupportedOperationException();
     }
 
     // Not supported by the underlying Streams model
     @Override
-    public IncreaseStreamRetentionPeriodResult increaseStreamRetentionPeriod(
-            IncreaseStreamRetentionPeriodRequest increaseStreamRetentionPeriodRequest) {
+    public IncreaseStreamRetentionPeriodResult increaseStreamRetentionPeriod(IncreaseStreamRetentionPeriodRequest increaseStreamRetentionPeriodRequest) {
         throw new UnsupportedOperationException();
     }
 }

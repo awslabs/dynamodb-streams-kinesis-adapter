@@ -85,10 +85,8 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
     /**
      * Checks that all AmazonServiceException properties are equal between the expected and actual exceptions.
      *
-     * @param expected
-     *            Exception with expected properties
-     * @param actual
-     *            Exception generated during the test
+     * @param expected Exception with expected properties
+     * @param actual   Exception generated during the test
      */
     private static void assertSameExceptionProperties(AmazonServiceException expected, AmazonServiceException actual) {
         assertNotNull(expected);
@@ -108,21 +106,14 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
     /**
      * Helper function to set AmazonServiceException properties.
      *
-     * @param ase
-     *            The Exception to modify
-     * @param errorCode
-     *            Error code property
-     * @param errorType
-     *            Error type property
-     * @param requestId
-     *            RequestId property
-     * @param serviceName
-     *            ServiceName property
-     * @param statusCode
-     *            StatusCode property
+     * @param ase         The Exception to modify
+     * @param errorCode   Error code property
+     * @param errorType   Error type property
+     * @param requestId   RequestId property
+     * @param serviceName ServiceName property
+     * @param statusCode  StatusCode property
      */
-    private static void setFields(AmazonServiceException ase, String errorCode, ErrorType errorType, String requestId,
-        String serviceName, int statusCode) {
+    private static void setFields(AmazonServiceException ase, String errorCode, ErrorType errorType, String requestId, String serviceName, int statusCode) {
         if (errorCode != null) {
             ase.setErrorCode(errorCode);
         }
@@ -154,15 +145,13 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         verify(streams, Mockito.times(1)).describeStream(Matchers.any(DescribeStreamRequest.class));
     }
 
-    private void doGetRecordsTest(AmazonServiceException ase, Class<?> expectedResult,
-        SkipRecordsBehavior skipRecordsBehavior) throws Exception {
+    private void doGetRecordsTest(AmazonServiceException ase, Class<?> expectedResult, SkipRecordsBehavior skipRecordsBehavior) throws Exception {
         whenNew(AmazonDynamoDBStreamsClient.class).withAnyArguments().thenReturn(streams);
         when(streams.getRecords(Matchers.any(GetRecordsRequest.class))).thenThrow(ase);
         AmazonDynamoDBStreamsAdapterClient adapterClient = new AmazonDynamoDBStreamsAdapterClient(FAKE_CREDS);
         adapterClient.setSkipRecordsBehavior(skipRecordsBehavior);
         try {
-            adapterClient.getRecords(new com.amazonaws.services.kinesis.model.GetRecordsRequest()
-                .withShardIterator(SHARD_ITERATOR));
+            adapterClient.getRecords(new com.amazonaws.services.kinesis.model.GetRecordsRequest().withShardIterator(SHARD_ITERATOR));
             fail("Expected " + expectedResult.getCanonicalName());
         } catch (RuntimeException e) {
             assertEquals(expectedResult, e.getClass());
@@ -173,15 +162,13 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         verify(streams, Mockito.times(1)).getRecords(Matchers.any(GetRecordsRequest.class));
     }
 
-    private void doGetShardIteratorTest(AmazonServiceException ase, Class<?> expectedResult,
-        SkipRecordsBehavior skipRecordsBehavior, int numCalls) throws Exception {
+    private void doGetShardIteratorTest(AmazonServiceException ase, Class<?> expectedResult, SkipRecordsBehavior skipRecordsBehavior, int numCalls) throws Exception {
         whenNew(AmazonDynamoDBStreamsClient.class).withAnyArguments().thenReturn(streams);
         when(streams.getShardIterator(Matchers.any(GetShardIteratorRequest.class))).thenThrow(ase);
         AmazonDynamoDBStreamsAdapterClient adapterClient = new AmazonDynamoDBStreamsAdapterClient(FAKE_CREDS);
         adapterClient.setSkipRecordsBehavior(skipRecordsBehavior);
         try {
-            adapterClient.getShardIterator(STREAM_NAME, SHARD_ID, ShardIteratorType.AT_SEQUENCE_NUMBER.toString(),
-                SEQUENCE_NUMBER);
+            adapterClient.getShardIterator(STREAM_NAME, SHARD_ID, ShardIteratorType.AT_SEQUENCE_NUMBER.toString(), SEQUENCE_NUMBER);
             fail("Expected " + expectedResult.getCanonicalName());
         } catch (RuntimeException e) {
             assertEquals(expectedResult, e.getClass());
@@ -218,8 +205,7 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         // Not thrown by DynamoDB Streams
         ProvisionedThroughputExceededException exception = new ProvisionedThroughputExceededException(null);
         setFields(exception, null, null, null, null, STATUS_CODE_400);
-        doDescribeStreamTest(exception,
-            com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class);
+        doDescribeStreamTest(exception, com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class);
     }
 
     @Test()
@@ -247,16 +233,14 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
     public void testGetRecordsExpiredIteratorException() throws Exception {
         ExpiredIteratorException eie = new ExpiredIteratorException(TEST_MESSAGE);
         setFields(eie, INTERNAL_FAILURE, ErrorType.Service, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(eie, com.amazonaws.services.kinesis.model.ExpiredIteratorException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(eie, com.amazonaws.services.kinesis.model.ExpiredIteratorException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test()
     public void testGetRecordsInternalServerErrorException() throws Exception {
         InternalServerErrorException ise = new InternalServerErrorException(TEST_MESSAGE);
         setFields(ise, INTERNAL_FAILURE, ErrorType.Service, REQUEST_ID, SERVICE_NAME, STATUS_CODE_500);
-        doGetRecordsTest(ise, com.amazonaws.AmazonServiceException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(ise, com.amazonaws.AmazonServiceException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test
@@ -264,66 +248,56 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         // Not thrown by DynamoDB Streams
         ProvisionedThroughputExceededException exception = new ProvisionedThroughputExceededException(null);
         setFields(exception, null, null, null, null, STATUS_CODE_400);
-        doGetRecordsTest(exception,
-            com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(exception, com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test()
     public void testGetRecordsLimitExceededException() throws Exception {
         LimitExceededException te = new LimitExceededException(TEST_MESSAGE);
         setFields(te, LIMIT_EXCEEDED_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(te, com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(te, com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test()
     public void testGetRecordsResourceNotFoundExceptionKCLRetry() throws Exception {
         ResourceNotFoundException rnfe = new ResourceNotFoundException(TEST_MESSAGE);
         setFields(rnfe, RESOURCE_NOT_FOUND, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(rnfe, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class,
-            SkipRecordsBehavior.KCL_RETRY);
+        doGetRecordsTest(rnfe, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class, SkipRecordsBehavior.KCL_RETRY);
     }
 
     @Test()
     public void testGetRecordsResourceNotFoundExceptionSkipRecords() throws Exception {
         ResourceNotFoundException rnfe = new ResourceNotFoundException(TEST_MESSAGE);
         setFields(rnfe, RESOURCE_NOT_FOUND, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(rnfe, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(rnfe, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test()
     public void testGetRecordsThrottlingException() throws Exception {
         AmazonServiceException te = new AmazonServiceException(TEST_MESSAGE);
         setFields(te, THROTTLING_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(te, com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(te, com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test()
     public void testGetRecordsTrimmedDataAccessExceptionKCLRetry() throws Exception {
         TrimmedDataAccessException tdae = new TrimmedDataAccessException(TEST_MESSAGE);
         setFields(tdae, TRIMMED_DATA_ACCESS_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(tdae,
-            com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadMoreRecordsException.class,
-            SkipRecordsBehavior.KCL_RETRY);
+        doGetRecordsTest(tdae, com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadMoreRecordsException.class, SkipRecordsBehavior.KCL_RETRY);
     }
 
     @Test()
     public void testGetRecordsTrimmedDataAccessExceptionSkipRecords() throws Exception {
         TrimmedDataAccessException tdae = new TrimmedDataAccessException(TEST_MESSAGE);
         setFields(tdae, TRIMMED_DATA_ACCESS_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetRecordsTest(tdae, com.amazonaws.services.kinesis.model.ExpiredIteratorException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
+        doGetRecordsTest(tdae, com.amazonaws.services.kinesis.model.ExpiredIteratorException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON);
     }
 
     @Test
     public void testGetShardIteratorInternalServerErrorException() throws Exception {
         InternalServerErrorException ise = new InternalServerErrorException(TEST_MESSAGE);
         setFields(ise, INTERNAL_FAILURE, ErrorType.Service, REQUEST_ID, SERVICE_NAME, STATUS_CODE_500);
-        doGetShardIteratorTest(ise, com.amazonaws.AmazonServiceException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
+        doGetShardIteratorTest(ise, com.amazonaws.AmazonServiceException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
     }
 
     @Test
@@ -331,51 +305,43 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         // Not thrown by DynamoDB Streams
         ProvisionedThroughputExceededException exception = new ProvisionedThroughputExceededException(null);
         setFields(exception, null, null, null, null, STATUS_CODE_400);
-        doGetShardIteratorTest(exception,
-            com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
+        doGetShardIteratorTest(exception, com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON,
+            1);
     }
 
     @Test()
     public void testGetShardIteratorResourceNotFoundExceptionKCLRetry() throws Exception {
         ResourceNotFoundException rnfe = new ResourceNotFoundException(TEST_MESSAGE);
         setFields(rnfe, RESOURCE_NOT_FOUND, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetShardIteratorTest(rnfe,
-            com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadMoreRecordsException.class,
-            SkipRecordsBehavior.KCL_RETRY, 1);
+        doGetShardIteratorTest(rnfe, com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadMoreRecordsException.class, SkipRecordsBehavior.KCL_RETRY, 1);
     }
 
     @Test()
     public void testGetShardIteratorResourceNotFoundExceptionSkipRecords() throws Exception {
         ResourceNotFoundException rnfe = new ResourceNotFoundException(TEST_MESSAGE);
         setFields(rnfe, RESOURCE_NOT_FOUND, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetShardIteratorTest(rnfe, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
+        doGetShardIteratorTest(rnfe, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
     }
 
     @Test()
     public void testGetShardIteratorThrottlingException() throws Exception {
         AmazonServiceException te = new AmazonServiceException(TEST_MESSAGE);
         setFields(te, THROTTLING_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetShardIteratorTest(te, com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
+        doGetShardIteratorTest(te, com.amazonaws.services.kinesis.model.ProvisionedThroughputExceededException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 1);
     }
 
     @Test()
     public void testGetShardIteratorTrimmedDataAccessExceptionKCLRetry() throws Exception {
         TrimmedDataAccessException tdae = new TrimmedDataAccessException(TEST_MESSAGE);
         setFields(tdae, TRIMMED_DATA_ACCESS_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetShardIteratorTest(tdae,
-            com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadMoreRecordsException.class,
-            SkipRecordsBehavior.KCL_RETRY, 1);
+        doGetShardIteratorTest(tdae, com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadMoreRecordsException.class, SkipRecordsBehavior.KCL_RETRY, 1);
     }
 
     @Test()
     public void testGetShardIteratorTrimmedDataAccessExceptionSkipRecords() throws Exception {
         TrimmedDataAccessException tdae = new TrimmedDataAccessException(TEST_MESSAGE);
         setFields(tdae, TRIMMED_DATA_ACCESS_EXCEPTION, ErrorType.Client, REQUEST_ID, SERVICE_NAME, STATUS_CODE_400);
-        doGetShardIteratorTest(tdae, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 2);
+        doGetShardIteratorTest(tdae, com.amazonaws.services.kinesis.model.ResourceNotFoundException.class, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON, 2);
     }
 
     @Test
@@ -390,8 +356,7 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         // Not thrown by DynamoDB Streams
         ProvisionedThroughputExceededException exception = new ProvisionedThroughputExceededException(null);
         setFields(exception, null, null, null, null, STATUS_CODE_400);
-        doListStreamsTest(exception,
-            com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class);
+        doListStreamsTest(exception, com.amazonaws.services.dynamodbv2.model.ProvisionedThroughputExceededException.class);
     }
 
     @Test
@@ -413,16 +378,11 @@ public class AmazonServiceExceptionTransformerTests extends AmazonServiceExcepti
         // If exception is null, we should get back null
         assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisListStreams(null));
         assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisDescribeStream(null));
-        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(null,
-            SkipRecordsBehavior.KCL_RETRY));
-        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(null,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON));
+        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(null, SkipRecordsBehavior.KCL_RETRY));
+        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(null, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON));
         assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(null, null));
-        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(null,
-            SkipRecordsBehavior.KCL_RETRY));
-        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(null,
-            SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON));
-        assertEquals(null,
-            AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(null, null));
+        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(null, SkipRecordsBehavior.KCL_RETRY));
+        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(null, SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON));
+        assertEquals(null, AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetShardIterator(null, null));
     }
 }

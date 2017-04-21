@@ -34,7 +34,7 @@ public class GetShardIteratorResultAdapter extends GetShardIteratorResult {
 
     /**
      * @return The position in the shard from which to start reading data records
-     *         sequentially.
+     * sequentially.
      */
     @Override
     public String getShardIterator() {

@@ -60,7 +60,7 @@ public class GetRecordsRequestAdapter extends GetRecordsRequest {
 
     /**
      * @return The position in the shard from which you want to start sequentially
-     *         reading data records.
+     * reading data records.
      */
     @Override
     public String getShardIterator() {
@@ -69,7 +69,7 @@ public class GetRecordsRequestAdapter extends GetRecordsRequest {
 
     /**
      * @param shardIterator The position in the shard from which you want to start sequentially
-     *         reading data records.
+     *                      reading data records.
      */
     @Override
     public void setShardIterator(String shardIterator) {
@@ -77,9 +77,8 @@ public class GetRecordsRequestAdapter extends GetRecordsRequest {
     }
 
     /**
-     *
      * @param shardIterator The position in the shard from which you want to start sequentially
-     *         reading data records.
+     *                      reading data records.
      * @return A reference to this updated object so that method calls can be chained together.
      */
     @Override

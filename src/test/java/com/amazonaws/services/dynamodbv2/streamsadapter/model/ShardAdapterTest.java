@@ -50,12 +50,12 @@ public class ShardAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetShardId() {
         adapter.setShardId(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithShardId() {
         adapter.withShardId(TEST_STRING);
     }
@@ -67,12 +67,12 @@ public class ShardAdapterTest {
         assertEquals(TEST_STRING, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetParentShardId() {
         adapter.setParentShardId(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithParentShardId() {
         adapter.withParentShardId(TEST_STRING);
     }
@@ -83,30 +83,29 @@ public class ShardAdapterTest {
         assertEquals(null, actual);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetAdjacentParentShardId() {
         adapter.setAdjacentParentShardId(TEST_STRING);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithAdjacentParentShardId() {
         adapter.withAdjacentParentShardId(TEST_STRING);
     }
 
     @Test
     public void testGetHashKeyRange() {
-        com.amazonaws.services.kinesis.model.HashKeyRange hashKeyRange =
-                adapter.getHashKeyRange();
+        com.amazonaws.services.kinesis.model.HashKeyRange hashKeyRange = adapter.getHashKeyRange();
         assertEquals(java.math.BigInteger.ZERO.toString(), hashKeyRange.getStartingHashKey());
         assertEquals(java.math.BigInteger.ONE.toString(), hashKeyRange.getEndingHashKey());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetHashKeyRange() {
         adapter.setHashKeyRange(null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithHashKeyRange() {
         adapter.withHashKeyRange(null);
     }
@@ -115,18 +114,17 @@ public class ShardAdapterTest {
     public void testGetSequenceNumberRange() {
         when(mockSequenceNumberRange.getStartingSequenceNumber()).thenReturn(TEST_STRING);
         when(mockSequenceNumberRange.getEndingSequenceNumber()).thenReturn(TEST_STRING);
-        com.amazonaws.services.kinesis.model.SequenceNumberRange sequenceNumberRange =
-                adapter.getSequenceNumberRange();
+        com.amazonaws.services.kinesis.model.SequenceNumberRange sequenceNumberRange = adapter.getSequenceNumberRange();
         assertEquals(TEST_STRING, sequenceNumberRange.getStartingSequenceNumber());
         assertEquals(TEST_STRING, sequenceNumberRange.getEndingSequenceNumber());
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testSetSequenceNumberRange() {
         adapter.setSequenceNumberRange(null);
     }
 
-    @Test(expected=UnsupportedOperationException.class)
+    @Test(expected = UnsupportedOperationException.class)
     public void testWithSequenceNumberRange() {
         adapter.withSequenceNumberRange(null);
     }
@@ -137,19 +135,13 @@ public class ShardAdapterTest {
         ShardAdapter shardAdapter = new ShardAdapter(shard);
         assertEquals(shard.getShardId(), shardAdapter.getShardId());
         assertEquals(shard.getParentShardId(), shardAdapter.getParentShardId());
-        assertEquals(shard.getSequenceNumberRange().getStartingSequenceNumber(),
-                shardAdapter.getSequenceNumberRange().getStartingSequenceNumber());
-        assertEquals(shard.getSequenceNumberRange().getEndingSequenceNumber(),
-                shardAdapter.getSequenceNumberRange().getEndingSequenceNumber());
+        assertEquals(shard.getSequenceNumberRange().getStartingSequenceNumber(), shardAdapter.getSequenceNumberRange().getStartingSequenceNumber());
+        assertEquals(shard.getSequenceNumberRange().getEndingSequenceNumber(), shardAdapter.getSequenceNumberRange().getEndingSequenceNumber());
     }
 
     private Shard createShard() {
-        return new Shard()
-            .withShardId(TEST_STRING)
-            .withParentShardId(TEST_STRING)
-            .withSequenceNumberRange(new SequenceNumberRange()
-                    .withStartingSequenceNumber(TEST_STRING)
-                    .withEndingSequenceNumber(TEST_STRING));
+        return new Shard().withShardId(TEST_STRING).withParentShardId(TEST_STRING)
+            .withSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber(TEST_STRING).withEndingSequenceNumber(TEST_STRING));
     }
 
 }

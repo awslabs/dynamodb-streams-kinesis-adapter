@@ -108,10 +108,7 @@ public class DescribeStreamRequestAdapterTest {
     }
 
     private DescribeStreamRequest createRequest() {
-        return new DescribeStreamRequest()
-            .withExclusiveStartShardId(TEST_STRING)
-            .withLimit(TEST_INT)
-            .withStreamName(TEST_STRING);
+        return new DescribeStreamRequest().withExclusiveStartShardId(TEST_STRING).withLimit(TEST_INT).withStreamName(TEST_STRING);
     }
 
 }
