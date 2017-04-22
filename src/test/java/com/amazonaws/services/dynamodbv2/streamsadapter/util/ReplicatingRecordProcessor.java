@@ -14,6 +14,8 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 
+import static com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason.TERMINATE;
+
 import java.nio.charset.Charset;
 
 import org.apache.commons.logging.Log;
@@ -24,7 +26,6 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcess
 import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
 import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
-import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason;
 import com.amazonaws.services.kinesis.model.Record;
 
 public class ReplicatingRecordProcessor implements IRecordProcessor {
@@ -81,7 +82,7 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
 
     @Override
     public void shutdown(ShutdownInput shutdownInput) {
-        if (ShutdownReason.TERMINATE.equals(shutdownInput.getShutdownReason())) {
+        if (TERMINATE.equals(shutdownInput.getShutdownReason())) {
             try {
                 shutdownInput.getCheckpointer().checkpoint();
             } catch (Exception e) {
