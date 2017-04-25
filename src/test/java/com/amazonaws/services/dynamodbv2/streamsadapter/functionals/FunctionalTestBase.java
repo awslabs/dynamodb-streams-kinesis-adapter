@@ -24,12 +24,15 @@ import org.junit.After;
 import org.junit.Before;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreams;
-import com.amazonaws.services.dynamodbv2.local.embedded.DynamoDBEmbedded;
-import com.amazonaws.services.dynamodbv2.local.shared.access.AmazonDynamoDBLocal;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClient;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableRequest;
 import com.amazonaws.services.dynamodbv2.streamsadapter.AmazonDynamoDBStreamsAdapterClient;
 import com.amazonaws.services.dynamodbv2.streamsadapter.StreamsWorkerFactory;
@@ -46,7 +49,6 @@ import com.amazonaws.services.kinesis.metrics.impl.NullMetricsFactory;
 public abstract class FunctionalTestBase {
     private static final Log LOG = LogFactory.getLog(FunctionalTestBase.class);
 
-    protected AmazonDynamoDBLocal dynamoDBLocal;
     protected AmazonDynamoDBStreams streamsClient;
     protected AmazonDynamoDBStreamsAdapterClient adapterClient;
     protected AmazonDynamoDB dynamoDBClient;
@@ -61,9 +63,6 @@ public abstract class FunctionalTestBase {
     private static String accessKeyId = "KCLIntegTest";
     private static String secretAccessKey = "dummy";
 
-    protected static String serviceName = "dynamodb";
-    protected static String dynamodbEndpoint = "dummyEndpoint";
-
     protected static String srcTable = "kcl-integ-test-src";
     protected static String destTable = "kcl-integ-test-dest";
     protected static String leaseTable = "kcl-integ-test-leases";
@@ -74,11 +73,12 @@ public abstract class FunctionalTestBase {
 
     @Before
     public void setup() {
-        credentials = new StaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey));
+        credentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKeyId, secretAccessKey));
 
-        dynamoDBLocal = DynamoDBEmbedded.create();
-        dynamoDBClient = dynamoDBLocal.amazonDynamoDB();
-        streamsClient = dynamoDBLocal.amazonDynamoDBStreams();
+        dynamoDBClient = new AmazonDynamoDBClient(credentials);
+        dynamoDBClient.setEndpoint("http://localhost:4567");
+        streamsClient = new AmazonDynamoDBStreamsClient(credentials);
+        streamsClient.setEndpoint("http://localhost:4567");
 
         adapterClient = new AmazonDynamoDBStreamsAdapterClient(streamsClient);
 
@@ -94,8 +94,6 @@ public abstract class FunctionalTestBase {
         dynamoDBClient.deleteTable(new DeleteTableRequest().withTableName(srcTable));
         dynamoDBClient.deleteTable(new DeleteTableRequest().withTableName(destTable));
         dynamoDBClient.deleteTable(new DeleteTableRequest().withTableName(leaseTable));
-
-        dynamoDBLocal.shutdown();
     }
 
     protected void startKCLWorker(KinesisClientLibConfiguration workerConfig) {
