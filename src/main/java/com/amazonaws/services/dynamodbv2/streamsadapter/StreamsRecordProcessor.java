@@ -22,7 +22,6 @@ import org.apache.commons.logging.LogFactory;
 
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorCheckpointer;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
 import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
 import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
@@ -33,7 +32,8 @@ import com.amazonaws.services.kinesis.model.Record;
  * Amazon Kinesis Client Library (KCL). It will retrieve the underlying Streams records
  * from the KCL adapter in order to simplify record processing tasks.
  */
-public abstract class StreamsRecordProcessor implements IRecordProcessor {
+public abstract class StreamsRecordProcessor implements
+    com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor {
 
     private static final Log LOG = LogFactory.getLog(StreamsRecordProcessor.class);
 

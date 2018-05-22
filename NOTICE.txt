@@ -1,2 +1,2 @@
 DynamoDB Streams Kinesis Adapter for Java
-Copyright 2014-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
