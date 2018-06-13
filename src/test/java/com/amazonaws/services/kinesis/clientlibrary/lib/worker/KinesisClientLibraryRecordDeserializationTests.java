@@ -39,6 +39,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
 import com.amazonaws.services.kinesis.clientlibrary.exceptions.KinesisClientLibException;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.ICheckpoint;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
+import com.amazonaws.services.kinesis.clientlibrary.lib.checkpoint.Checkpoint;
 import com.amazonaws.services.kinesis.clientlibrary.proxies.IKinesisProxy;
 import com.amazonaws.services.kinesis.clientlibrary.proxies.KinesisProxyFactory;
 import com.amazonaws.services.kinesis.clientlibrary.types.ExtendedSequenceNumber;
@@ -78,25 +79,29 @@ public class KinesisClientLibraryRecordDeserializationTests {
     private static final StreamConfig STREAM_CONFIG =
         new StreamConfig(KINESIS_PROXY, 1000/* RecordLimit */, 0l /* IdleTimeMillis */, false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */,
             InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
+    private static final int GET_RECORDS_ITEM_LIMIT = 1000;
+    private static final ExtendedSequenceNumber NULL_EXTENDED_SEQUENCE_NUMBER = null;
 
     @Test
     public void testVerifyKCLProvidesRecordAdapter() throws KinesisClientLibException {
         // Setup mocks
-        when(CHECKPOINT.getCheckpoint(SHARD_ID)).thenReturn(ExtendedSequenceNumber.TRIM_HORIZON);
+        when(CHECKPOINT.getCheckpointObject(SHARD_ID)).thenReturn(new Checkpoint(ExtendedSequenceNumber.TRIM_HORIZON, NULL_EXTENDED_SEQUENCE_NUMBER));
         when(CHECKPOINTER.getLastCheckpointValue()).thenReturn(ExtendedSequenceNumber.TRIM_HORIZON);
         when(DYNAMODB_STREAMS.describeStream(any(DescribeStreamRequest.class))).thenReturn(new DescribeStreamResult().withStreamDescription(STREAM_DESCRIPTION));
         when(DYNAMODB_STREAMS.getShardIterator(any(GetShardIteratorRequest.class))).thenReturn(new GetShardIteratorResult().withShardIterator(SHARD_ITERATOR));
         when(DYNAMODB_STREAMS.getRecords(any(GetRecordsRequest.class))).thenReturn(new GetRecordsResult().withNextShardIterator(SHARD_ITERATOR).withRecords(RECORDS));
 
+
+        GetRecordsCache cache = new BlockingGetRecordsCache(GET_RECORDS_ITEM_LIMIT, new SynchronousGetRecordsRetrievalStrategy(KINESIS_DATA_FETCHER));
         // Initialize the Record Processor
-        InitializeTask initializeTask = new InitializeTask(SHARD_INFO, RECORD_PROCESSOR, CHECKPOINT, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, STREAM_CONFIG);
+        InitializeTask initializeTask = new InitializeTask(SHARD_INFO, RECORD_PROCESSOR, CHECKPOINT, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, STREAM_CONFIG, cache);
         initializeTask.call();
         // Execute process task
-        ProcessTask processTask = new ProcessTask(SHARD_INFO, STREAM_CONFIG, RECORD_PROCESSOR, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, false /*skipShardSyncAtWorkerInitializationIfLeasesExist*/);
+        ProcessTask processTask = new ProcessTask(SHARD_INFO, STREAM_CONFIG, RECORD_PROCESSOR, CHECKPOINTER, KINESIS_DATA_FETCHER, 0L /* backoffTimeMillis */, false /*skipShardSyncAtWorkerInitializationIfLeasesExist*/, cache);
         processTask.call();
 
         // Verify mocks
-        verify(CHECKPOINT).getCheckpoint(SHARD_ID);
+        verify(CHECKPOINT).getCheckpointObject(SHARD_ID);
         verify(CHECKPOINTER).setLargestPermittedCheckpointValue(EXTENDED_SEQUENCE_NUMBER);
         verify(CHECKPOINTER).setInitialCheckpointValue(ExtendedSequenceNumber.TRIM_HORIZON);
         verify(CHECKPOINTER).getLastCheckpointValue();

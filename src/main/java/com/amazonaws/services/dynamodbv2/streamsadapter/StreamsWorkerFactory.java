@@ -22,6 +22,7 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.NoOpShardPrioritization;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker;
 import com.amazonaws.services.kinesis.metrics.interfaces.IMetricsFactory;
 
@@ -40,8 +41,18 @@ public class StreamsWorkerFactory {
      *                               consumption)
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config, ExecutorService execService) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config)
-            .kinesisClient(new AmazonDynamoDBStreamsAdapterClient(config.getKinesisCredentialsProvider(), config.getKinesisClientConfiguration())).execService(execService).build();
+        AmazonDynamoDBStreamsAdapterClient streamsClient = new AmazonDynamoDBStreamsAdapterClient(
+            config.getKinesisCredentialsProvider(),
+            config.getKinesisClientConfiguration());
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .execService(execService)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
     }
 
     /**
@@ -53,8 +64,16 @@ public class StreamsWorkerFactory {
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
         AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, AmazonCloudWatch cloudWatchClient) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config).kinesisClient(streamsClient).dynamoDBClient(dynamoDBClient)
-            .cloudWatchClient(cloudWatchClient).build();
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .dynamoDBClient(dynamoDBClient)
+            .cloudWatchClient(cloudWatchClient)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
     }
 
     /**
@@ -68,8 +87,17 @@ public class StreamsWorkerFactory {
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
         AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, AmazonCloudWatch cloudWatchClient, ExecutorService execService) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config).kinesisClient(streamsClient).dynamoDBClient(dynamoDBClient)
-            .cloudWatchClient(cloudWatchClient).execService(execService).build();
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .dynamoDBClient(dynamoDBClient)
+            .cloudWatchClient(cloudWatchClient)
+            .execService(execService)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
     }
 
     /**
@@ -83,8 +111,17 @@ public class StreamsWorkerFactory {
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
         AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, IMetricsFactory metricsFactory, ExecutorService execService) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config).kinesisClient(streamsClient).dynamoDBClient(dynamoDBClient)
-            .metricsFactory(metricsFactory).execService(execService).build();
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .dynamoDBClient(dynamoDBClient)
+            .metricsFactory(metricsFactory)
+            .execService(execService)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
     }
 
     /**
@@ -96,8 +133,16 @@ public class StreamsWorkerFactory {
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
         AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, AmazonCloudWatchClient cloudWatchClient) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config).kinesisClient(streamsClient).dynamoDBClient(dynamoDBClient)
-            .cloudWatchClient(cloudWatchClient).build();
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .dynamoDBClient(dynamoDBClient)
+            .cloudWatchClient(cloudWatchClient)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
     }
 
     /**
@@ -111,8 +156,17 @@ public class StreamsWorkerFactory {
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
         AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, AmazonCloudWatchClient cloudWatchClient, ExecutorService execService) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config).kinesisClient(streamsClient).dynamoDBClient(dynamoDBClient)
-            .cloudWatchClient(cloudWatchClient).execService(execService).build();
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .dynamoDBClient(dynamoDBClient)
+            .cloudWatchClient(cloudWatchClient)
+            .execService(execService)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
     }
 
     /**
@@ -126,8 +180,26 @@ public class StreamsWorkerFactory {
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
         AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, IMetricsFactory metricsFactory, ExecutorService execService) {
-        return new Worker.Builder().recordProcessorFactory(recordProcessorFactory).config(config).kinesisClient(streamsClient).dynamoDBClient(dynamoDBClient)
-            .metricsFactory(metricsFactory).execService(execService).build();
+        return new Worker
+            .Builder()
+            .recordProcessorFactory(recordProcessorFactory)
+            .config(config)
+            .kinesisClient(streamsClient)
+            .dynamoDBClient(dynamoDBClient)
+            .metricsFactory(metricsFactory)
+            .execService(execService)
+            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
+            .shardPrioritization(config.getShardPrioritizationStrategy())
+            .build();
+    }
+
+    private static DynamoDBStreamsProxy getDynamoDBStreamsProxy(KinesisClientLibConfiguration config,
+        AmazonDynamoDBStreamsAdapterClient streamsClient) {
+        return new DynamoDBStreamsProxy.Builder(
+            config.getStreamName(),
+            config.getKinesisCredentialsProvider(),
+            streamsClient)
+            .build();
     }
 
 }
