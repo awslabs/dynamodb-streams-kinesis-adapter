@@ -1,23 +1,26 @@
 /*
- *  Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  SPDX-License-Identifier: Apache-2.0
+ * Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * SPDX-License-Identifier: Apache-2.0
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ShardAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.utils.ThreadSleeper;
 import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.DescribeStreamResult;
 import com.amazonaws.services.kinesis.model.LimitExceededException;
-import com.amazonaws.services.kinesis.model.SequenceNumberRange;
 import com.amazonaws.services.kinesis.model.Shard;
 import com.amazonaws.services.kinesis.model.StreamDescription;
 import com.amazonaws.services.kinesis.model.StreamStatus;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -26,12 +29,20 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.any;
@@ -39,6 +50,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(Parameterized.class)
 public class DynamoDBStreamsProxyTest {
 
     private static final String STREAM_NAME = "StreamName";
@@ -73,8 +85,23 @@ public class DynamoDBStreamsProxyTest {
 
     private DynamoDBStreamsProxy dynamoDBStreamsProxy;
 
+    private Boolean isLeafParentOpen;
+
+    public DynamoDBStreamsProxyTest(Boolean isLeafParentOpen) {
+        this.isLeafParentOpen = isLeafParentOpen;
+    }
+
+    @Parameterized.Parameters
+    public static Collection<Object> getParameters() {
+        Object[] params = {
+                false,     // Parent of the leaf node is closed. Expected state.
+                true       // Parent of the leaf node is open. Inconsistent state.
+        };
+        return Arrays.asList(params);
+    }
+
     @Before
-    public void setup() throws InterruptedException {
+    public void setup() {
         MockitoAnnotations.initMocks(this);
         Mockito.doNothing().when(mockSleeper).sleep(anyLong());
         dynamoDBStreamsProxy = new DynamoDBStreamsProxy
@@ -89,7 +116,7 @@ public class DynamoDBStreamsProxyTest {
             .build();
         when(mockRandom.nextDouble()).thenAnswer(new Answer() {
             private int count = 0;
-            @Override public Object answer(InvocationOnMock invocation) throws Throwable {
+            @Override public Object answer(InvocationOnMock invocation) {
                 return RANDOM_SEQUENCE[count++];
             }
         });
@@ -116,7 +143,9 @@ public class DynamoDBStreamsProxyTest {
 
     @Test
     public void testDDBProxyDoesNotRetryIfShardGraphHasAllChildrenOpen() {
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
+        final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
+        leafNodeOpenParentShardIds.add(String.valueOf(DEFAULT_FIRST_SHARD_PARENT_ID + NUM_SHARDS - 1));
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
             .thenReturn(describeStreamResult);
@@ -125,12 +154,12 @@ public class DynamoDBStreamsProxyTest {
         verify(mockKinesisClient, times(1)).describeStream(argumentCaptor.capture());
         Assert.assertEquals(null, argumentCaptor.getValue().getExclusiveStartShardId());
         Assert.assertEquals(NUM_SHARDS, result.size());
-        verifyExpectedShardsInResult(shards, result);
+        verifyExpectedShardsInResult(shards, result, leafNodeOpenParentShardIds);
     }
 
     @Test(expected = LimitExceededException.class)
     public void testDDBProxyThrowsWhenDescribeStreamIsThrottledDuringGetShardList() {
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, HAS_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
             .thenReturn(describeStreamResult)
@@ -148,7 +177,7 @@ public class DynamoDBStreamsProxyTest {
 
     @Test(expected = ResourceNotFoundException.class)
     public void testDDBProxyThrowsRNFEWhenDescribeStreamIsThrottledDuringGetShardList() {
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, HAS_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
             .thenReturn(describeStreamResult)
@@ -165,7 +194,7 @@ public class DynamoDBStreamsProxyTest {
 
     @Test
     public void testDDBProxyReturnsNullWhenStreamIsDisabledDuringGetShardList() {
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         describeStreamResult.setStreamDescription(new StreamDescription().withStreamStatus("DISABLED"));
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
@@ -182,7 +211,7 @@ public class DynamoDBStreamsProxyTest {
             null,
             Integer.toString(7),
         };
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         final DescribeStreamResult disabledDescribeStreamResult = new DescribeStreamResult();
         disabledDescribeStreamResult.setStreamDescription(new StreamDescription().withStreamStatus("DISABLED"));
@@ -224,12 +253,9 @@ public class DynamoDBStreamsProxyTest {
             "shardId-00000001517312623906-fc3dbd40",
         };
         final List<Shard> allShards = new LinkedList<>();
-        final List<Shard> page1 = getShardList(10, NUM_SHARDS, LEAF_NODE_CLOSED);
-        page1.get(page1.size() - 1).setShardId(shardId1);
-        final List<Shard> page2 = getShardList(20, NUM_SHARDS, LEAF_NODE_CLOSED);
-        page2.get(page2.size() - 1).setShardId(shardId2);
-        final List<Shard> page3 = getShardList(30, NUM_SHARDS, LEAF_NODE_CLOSED);
-        page3.get(page3.size() - 1).setShardId(shardId3);
+        final List<Shard> page1 = getShardListForOneShardLineageWithCustomShardIDForLeafNode(10, NUM_SHARDS, LEAF_NODE_CLOSED, shardId1);
+        final List<Shard> page2 = getShardListForOneShardLineageWithCustomShardIDForLeafNode(20, NUM_SHARDS, LEAF_NODE_CLOSED, shardId2);
+        final List<Shard> page3 = getShardListForOneShardLineageWithCustomShardIDForLeafNode(30, NUM_SHARDS, LEAF_NODE_CLOSED, shardId3);
         page1.addAll(page2);
         page1.addAll(page3);
         final DescribeStreamResult ds_result = getDescribeStreamResult(page1, NO_MORE_SHARDS);
@@ -267,7 +293,7 @@ public class DynamoDBStreamsProxyTest {
         verifyBackoffIntervals(sleeperArgumentCaptor.getAllValues());
         int expectedNumberOfShards = NUM_SHARDS * 3 + 3;
         Assert.assertEquals(expectedNumberOfShards, result.size());
-        verifyExpectedShardsInResult(allShards, result);
+        verifyExpectedShardsInResult(allShards, result, new HashSet<>() /*Since all leaf nodes were closed, there'll be no open parent nodes*/);
     }
 
     /**
@@ -287,22 +313,26 @@ public class DynamoDBStreamsProxyTest {
             Integer.toString(37),
             Integer.toString(37),
         };
+        final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
         final List<Shard> allShards = new LinkedList<>();
-        final List<Shard> page1 = getShardList(10, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page1 = getShardListForOneShardLineage(10, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(10 + NUM_SHARDS - 1));
         // All shards from this page expected in returned list
         allShards.addAll(page1);
         final DescribeStreamResult ds_page1 = getDescribeStreamResult(page1, HAS_MORE_SHARDS);
-        final List<Shard> page2 = getShardList(20, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page2 = getShardListForOneShardLineage(20, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(20 + NUM_SHARDS - 1));
         // All shards from this page expected in returned list
         allShards.addAll(page2);
         final DescribeStreamResult ds_page2 = getDescribeStreamResult(page2, HAS_MORE_SHARDS);
-        final List<Shard> page3 = getShardList(30, NUM_SHARDS, LEAF_NODE_CLOSED);
+        final List<Shard> page3 = getShardListForOneShardLineage(30, NUM_SHARDS, LEAF_NODE_CLOSED);
         // All shards from this page expected in returned list
         allShards.addAll(page3);
         final DescribeStreamResult ds_page3 = getDescribeStreamResult(page3, NO_MORE_SHARDS);
         final List<Shard> page4 = Collections.emptyList();
         final DescribeStreamResult ds_page4 = getDescribeStreamResult(page4, NO_MORE_SHARDS);
-        final List<Shard> page5 = getShardList(37, 1, LEAF_NODE_OPEN);
+        final List<Shard> page5 = getShardListForOneShardLineage(37, 1, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(37 + NUM_SHARDS - 1));
         // All shards from this page expected in returned list
         allShards.addAll(page5);
         final DescribeStreamResult ds_page5 = getDescribeStreamResult(page5, NO_MORE_SHARDS);
@@ -322,7 +352,7 @@ public class DynamoDBStreamsProxyTest {
         verifyBackoffIntervals(sleeperArgumentCaptor.getAllValues());
         int expectedNumberOfShards = NUM_SHARDS * 3 + 1;
         Assert.assertEquals(expectedNumberOfShards, result.size());
-        verifyExpectedShardsInResult(allShards, result);
+        verifyExpectedShardsInResult(allShards, result, leafNodeOpenParentShardIds);
     }
 
     /**
@@ -342,26 +372,28 @@ public class DynamoDBStreamsProxyTest {
             Integer.toString(37),
             Integer.toString(37),
         };
+        final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
         final List<Shard> allShards = new LinkedList<>();
-        final List<Shard> page1 = getShardList(10, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page1 = getShardListForOneShardLineage(10, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(10 + NUM_SHARDS - 1));
         // All shards from this page expected in returned list
         allShards.addAll(page1);
         final DescribeStreamResult ds_page1 = getDescribeStreamResult(page1, HAS_MORE_SHARDS);
-        final List<Shard> page2 = getShardList(20, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page2 = getShardListForOneShardLineage(20, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(20 + NUM_SHARDS - 1));
         // All shards from this page expected in returned list
         allShards.addAll(page2);
         final DescribeStreamResult ds_page2 = getDescribeStreamResult(page2, HAS_MORE_SHARDS);
-        final List<Shard> page3 = getShardList(30, NUM_SHARDS, LEAF_NODE_CLOSED);
+        final List<Shard> page3 = getShardListForOneShardLineage(30, NUM_SHARDS, LEAF_NODE_CLOSED);
         // All shards from this page expected in returned list
         allShards.addAll(page3);
         final DescribeStreamResult ds_page3 = getDescribeStreamResult(page3, NO_MORE_SHARDS);
         // No shards from page4 should show up in the final response
-        final List<Shard> page4 = getShardList(39, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page4 = getShardListForOneShardLineage(39, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(39 + NUM_SHARDS - 1));
         final DescribeStreamResult ds_page4 = getDescribeStreamResult(page4, NO_MORE_SHARDS);
         // The first shard from page5 should show up in the final response
-        final List<Shard> page5 = getShardList(37, NUM_SHARDS + 2, LEAF_NODE_OPEN);
-        //Mark the first shard as open - the first shard will resolve inconsistency
-        page5.get(0).setSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber("1"));
+        final List<Shard> page5 = getShardListForOneShardLineageWithFirstShardOpen(37, NUM_SHARDS + 2, LEAF_NODE_OPEN);
         allShards.add(page5.get(0));
         final DescribeStreamResult ds_page5 = getDescribeStreamResult(page5, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
@@ -380,7 +412,7 @@ public class DynamoDBStreamsProxyTest {
         verifyBackoffIntervals(sleeperArgumentCaptor.getAllValues());
         int expectedNumberOfShards = NUM_SHARDS * 3 + 1;
         Assert.assertEquals(expectedNumberOfShards, result.size());
-        verifyExpectedShardsInResult(allShards, result);
+        verifyExpectedShardsInResult(allShards, result, leafNodeOpenParentShardIds);
     }
 
     /**
@@ -405,29 +437,35 @@ public class DynamoDBStreamsProxyTest {
             Integer.toString(46),
             Integer.toString(37)
         };
+        // We create a list of nodes which we expect will be fixed by setting a fixed non-null value for the
+        // end sequence number.
+        final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
         final List<Shard> allShards = new LinkedList<>();
-        final List<Shard> page1 = getShardList(10, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page1 = getShardListForOneShardLineage(10, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(10 + NUM_SHARDS - 1)); // ID of parent of leaf node.
         // All shards from this page expected in returned list
         allShards.addAll(page1);
         final DescribeStreamResult ds_page1 = getDescribeStreamResult(page1, HAS_MORE_SHARDS);
-        final List<Shard> page2 = getShardList(20, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page2 = getShardListForOneShardLineage(20, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(20 + NUM_SHARDS - 1)); // ID of parent of leaf node.
         // All shards from this page expected in returned list
         allShards.addAll(page2);
         final DescribeStreamResult ds_page2 = getDescribeStreamResult(page2, HAS_MORE_SHARDS);
-        final List<Shard> page3 = getShardList(30, NUM_SHARDS, LEAF_NODE_CLOSED);
+        final List<Shard> page3 = getShardListForOneShardLineage(30, NUM_SHARDS, LEAF_NODE_CLOSED);
         // All shards from this page expected in returned list
         allShards.addAll(page3);
         final DescribeStreamResult ds_page3 = getDescribeStreamResult(page3, NO_MORE_SHARDS);
         // No shards from this page expected in returned list
-        final List<Shard> page4 = getShardList(39, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page4 = getShardListForOneShardLineage(39, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(39 + NUM_SHARDS - 1)); // ID of parent of leaf node.
         final DescribeStreamResult ds_page4 = getDescribeStreamResult(page4, NO_MORE_SHARDS);
-        final List<Shard> page5 = getShardList(46, NUM_SHARDS, LEAF_NODE_OPEN);
+        final List<Shard> page5 = getShardListForOneShardLineage(46, NUM_SHARDS, LEAF_NODE_OPEN);
+        leafNodeOpenParentShardIds.add(String.valueOf(46 + NUM_SHARDS - 1)); // ID of parent of leaf node.
         // All shards from this page expected in returned list
         allShards.addAll(page5);
         final DescribeStreamResult ds_page5 = getDescribeStreamResult(page5, NO_MORE_SHARDS);
-        final List<Shard> page6 = getShardList(37, NUM_SHARDS + 2, LEAF_NODE_OPEN);
         // Mark the first shard as open - the first shard will resolve inconsistency
-        page6.get(0).setSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber("1"));
+        final List<Shard> page6 = getShardListForOneShardLineageWithFirstShardOpen(37, NUM_SHARDS + 2, LEAF_NODE_OPEN);
         // First shard from page6 expected in returned list
         allShards.add(page6.get(0));
         final DescribeStreamResult ds_page6 = getDescribeStreamResult(page6, NO_MORE_SHARDS);
@@ -464,7 +502,7 @@ public class DynamoDBStreamsProxyTest {
         verify(mockSleeper, times(expectedNumberOfSleeperInvocations)).sleep(sleeperArgumentCaptor.capture());
         verifyExclusiveStartShardIdSequence(argumentCaptor.getAllValues(), Arrays.asList(expectedExclusiveShardIdSequence));
         int expectedNumberOfShards = NUM_SHARDS * 4 + 1;
-        verifyExpectedShardsInResult(allShards, result);
+        verifyExpectedShardsInResult(allShards, result, leafNodeOpenParentShardIds);
         Assert.assertEquals(expectedNumberOfShards, result.size());
     }
 
@@ -473,14 +511,16 @@ public class DynamoDBStreamsProxyTest {
         final long numShardsInLineage = 6;
         final long numLineages = MAX_SHARD_COUNT_TO_TRIGGER_RETRIES/numShardsInLineage;
         final List<Shard> allShards = new LinkedList<>();
+        final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
         // setting leaf node for all but one lineage open.
         for (int i = 1; i < numLineages; i++) {
-            final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID + i*10,
-                (int)numShardsInLineage, LEAF_NODE_OPEN);
+            final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID + i*10,
+                                                                      (int)numShardsInLineage, LEAF_NODE_OPEN);
+            leafNodeOpenParentShardIds.add(String.valueOf(DEFAULT_FIRST_SHARD_PARENT_ID + i*10 + (int)numShardsInLineage - 1));
             allShards.addAll(shards);
         }
-        // Add one lineage with closed child
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
+        // Add one lineage with closed child.
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
         allShards.addAll(shards);
         // Assert shard count is MAX_SHARD_COUNT_TO_TRIGGER_RETRIES + 1
         final int expectedNumberOfShards = MAX_SHARD_COUNT_TO_TRIGGER_RETRIES.intValue() + 1;
@@ -497,20 +537,20 @@ public class DynamoDBStreamsProxyTest {
         verify(mockSleeper, times(expectedNumberOfSleeperInvocations)).sleep(sleeperArgumentCaptor.capture());
         Assert.assertNull("ExclusiveStartShardId is null", argumentCaptor.getValue().getExclusiveStartShardId());
         Assert.assertEquals(expectedNumberOfShards, result.size());
-        verifyExpectedShardsInResult(allShards, result);
+        verifyExpectedShardsInResult(allShards, result, leafNodeOpenParentShardIds);
     }
 
     private void executeGetShardListTest(int numberOfInconsistentResults, boolean endWithConsistentGraph) {
         final List<String> exclusiveStartShardIdSequence = getExclusiveShardIdSequenceForDefaultNumShards(numberOfInconsistentResults);
-        final List<Shard> shards = getShardList(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
-        final Shard nextShard = createDummyShard(NUM_SHARDS, NUM_SHARDS+1, LEAF_NODE_OPEN);
+        final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
+        final Shard nextShard = createDummyShard(Integer.toString(NUM_SHARDS), Integer.toString(NUM_SHARDS+1), LEAF_NODE_OPEN);
         final List<Shard> nextShardList = new LinkedList<>();
         nextShardList.add(nextShard);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         final DescribeStreamResult nextDescribeStreamResult = getDescribeStreamResult(nextShardList, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class))).thenAnswer(new Answer() {
             private int count = 0;
-            @Override public Object answer(InvocationOnMock invocation) throws Throwable {
+            @Override public Object answer(InvocationOnMock invocation) {
                 if (count++ < numberOfInconsistentResults) {
                     return describeStreamResult;
                 }
@@ -536,28 +576,78 @@ public class DynamoDBStreamsProxyTest {
         if (endWithConsistentGraph) {
             allShards.addAll(nextShardList);
         }
-        verifyExpectedShardsInResult(allShards, result);
+        verifyExpectedShardsInResult(allShards, result, new HashSet<>() /*Since the only leaf node was closed, there'll be no open parent nodes*/);
     }
 
-    private Shard createDummyShard(int parentShardId, int shardId, boolean closed) {
-        final Shard shard = new Shard();
-        shard.setParentShardId(Integer.toString(parentShardId));
-        shard.setShardId(Integer.toString(shardId));
+    /**
+     *
+     * @param parentShardId Parent Shard ID for the created shard
+     * @param shardId Shard ID for the created shard
+     * @param closed Whether or not the shard is marked as closed (non-null end sequence number).
+     * @return
+     */
+    private Shard createDummyShard(String parentShardId, String shardId, boolean closed) {
+        final com.amazonaws.services.dynamodbv2.model.Shard shard = new com.amazonaws.services.dynamodbv2.model.Shard();
+        shard.setParentShardId(parentShardId);
+        shard.setShardId(shardId);
         if (closed) {
             shard.setSequenceNumberRange(getSequenceNumberRange());
         } else {
             shard.setSequenceNumberRange(getEndNullSequenceNumberRange());
         }
-        return shard;
+        return new ShardAdapter(shard);
     }
 
-    private List<Shard> getShardList(int firstShardParentId, int numShards, boolean leafNodeClosed) {
+    private List<Shard> getShardListForOneShardLineage(int firstShardParentId, int numShards, boolean leafNodeClosed) {
         final List<Shard> shards = new LinkedList<>();
         for (int i = firstShardParentId; i < firstShardParentId + numShards; i++) {
+            String parentShardId = Integer.toString(i);
+            String shardId = Integer.toString(i + 1);
             if (i == firstShardParentId + numShards - 1) {
-                shards.add(createDummyShard(i, i+1, leafNodeClosed));
+                shards.add(createDummyShard(parentShardId, shardId, leafNodeClosed /*shard marked closed or not*/));
+            } else if (i == firstShardParentId + numShards - 2) {
+                // If the leaf node is closed, its parent will not be open.
+                // We mark leaf parent open only if the leaf node is open.
+                shards.add(createDummyShard(parentShardId, shardId, !isLeafParentOpen || leafNodeClosed /*shard marked closed or not*/));
             } else {
-                shards.add(createDummyShard(i, i+1, true));
+                shards.add(createDummyShard(parentShardId, shardId,true /*shard closed*/));
+            }
+        }
+        return shards;
+    }
+
+    private List<Shard> getShardListForOneShardLineageWithCustomShardIDForLeafNode(int firstShardParentId, int numShards, boolean leafNodeClosed, String leafShardId) {
+        final List<Shard> shards = new LinkedList<>();
+        for (int i = firstShardParentId; i < firstShardParentId + numShards; i++) {
+            String parentShardId = Integer.toString(i);
+            String shardId = Integer.toString(i + 1);
+            if (i == firstShardParentId + numShards - 1) {
+                shards.add(createDummyShard(parentShardId, leafShardId, leafNodeClosed /*shard marked closed or not*/));
+            } else if (i == firstShardParentId + numShards - 2) {
+                // If the leaf node is closed, its parent will not be open.
+                // We mark leaf parent open only if the leaf node is open.
+                shards.add(createDummyShard(parentShardId, shardId, !isLeafParentOpen || leafNodeClosed /*shard marked closed or not*/));
+            } else {
+                shards.add(createDummyShard(parentShardId, shardId, true /*shard closed*/));
+            }
+        }
+        return shards;
+    }
+
+    // Utility method for shardList generation for some tests.
+    private List<Shard> getShardListForOneShardLineageWithFirstShardOpen(int firstShardParentId, int numShards, boolean leafNodeClosed) {
+        final List<Shard> shards = new LinkedList<>();
+        for (int i = firstShardParentId; i < firstShardParentId + numShards; i++) {
+            String parentShardId = Integer.toString(i);
+            String shardId = Integer.toString(i + 1);
+            if (i == firstShardParentId + numShards - 1) {
+                shards.add(createDummyShard(parentShardId, shardId, leafNodeClosed /*shard marked closed or not*/));
+            } else if (i == firstShardParentId + numShards - 2) {
+                // If the leaf node is closed, its parent will not be open.
+                // We mark leaf parent open only if the leaf node is open.
+                shards.add(createDummyShard(parentShardId, shardId, !isLeafParentOpen || leafNodeClosed /*shard marked closed or not*/));
+            } else {
+                shards.add(createDummyShard(parentShardId, shardId, i > firstShardParentId /*First shard open, rest closed*/));
             }
         }
         return shards;
@@ -578,13 +668,38 @@ public class DynamoDBStreamsProxyTest {
         }
     }
 
-    private void verifyExpectedShardsInResult(List<Shard> expectedShards, List<Shard> actualShards) {
+    private void verifyExpectedShardsInResult(List<Shard> expectedShards, List<Shard> actualShards, Set<String> fixedOpenParentShardIds) {
         final HashSet<String> actualShardIdSet = new HashSet<>();
         for (Shard shard : actualShards) {
             actualShardIdSet.add(shard.getShardId());
         }
         for (Shard shard : expectedShards) {
             Assert.assertTrue(actualShardIdSet.contains(shard.getShardId()));
+        }
+        verifyAllNonLeafNodesAreClosed(actualShards, fixedOpenParentShardIds);
+    }
+
+    private void verifyAllNonLeafNodesAreClosed(List<Shard> shards, Set<String> fixedOpenParentShardIds) {
+        // build a map to get parent shards.
+        Set<Shard> nonLeafNodes = new HashSet<>();
+        Map<String, Shard> shardMap = shards.stream().collect(Collectors.toMap(Shard::getShardId, Function.identity()));
+        for (Shard shard : shards) {
+            if (shardMap.containsKey(shard.getParentShardId())) {
+                nonLeafNodes.add(shardMap.get(shard.getParentShardId()));
+            }
+        }
+        for (Shard shard : nonLeafNodes) {
+            assertNotNull("All non-leaf nodes should be closed.", shard.getSequenceNumberRange().getEndingSequenceNumber());
+            // If tests are being run for the isLeafParentOpen case and this shard is one of the open-parent shards
+            // that was fixed with {DynamoDBStreamsProxy#END_SEQUENCE_NUMBER_TO_CLOSE_OPEN_PARENT}, we assert on the
+            // value of the end sequence number being equal to it.
+            if (isLeafParentOpen && fixedOpenParentShardIds.contains(shard.getShardId())) {
+                assertEquals(DynamoDBStreamsProxy.END_SEQUENCE_NUMBER_TO_CLOSE_OPEN_PARENT, shard.getSequenceNumberRange().getEndingSequenceNumber());
+            } else {
+                // for all other non-leaf shards, we ensure we did not overwrite the existing value with
+                // {DynamoDBStreamsProxy#END_SEQUENCE_NUMBER_TO_CLOSE_OPEN_PARENT}.
+                assertNotEquals(DynamoDBStreamsProxy.END_SEQUENCE_NUMBER_TO_CLOSE_OPEN_PARENT, shard.getSequenceNumberRange().getEndingSequenceNumber());
+            }
         }
     }
 
@@ -598,15 +713,16 @@ public class DynamoDBStreamsProxyTest {
         return result;
     }
 
-    private SequenceNumberRange getSequenceNumberRange() {
-        final SequenceNumberRange range = new SequenceNumberRange();
+    private com.amazonaws.services.dynamodbv2.model.SequenceNumberRange getSequenceNumberRange() {
+        final com.amazonaws.services.dynamodbv2.model.SequenceNumberRange range = new com.amazonaws.services.dynamodbv2.model.SequenceNumberRange();
         range.setStartingSequenceNumber(STARTING_SEQUENCE_NUMBER);
         range.setEndingSequenceNumber(ENDING_SEQUENCE_NUMBER);
         return range;
     }
 
-    private SequenceNumberRange getEndNullSequenceNumberRange() {
-        final SequenceNumberRange range = new SequenceNumberRange();
+    private com.amazonaws.services.dynamodbv2.model.SequenceNumberRange getEndNullSequenceNumberRange() {
+        final com.amazonaws.services.dynamodbv2.model.SequenceNumberRange range
+            = new com.amazonaws.services.dynamodbv2.model.SequenceNumberRange();
         range.setStartingSequenceNumber(STARTING_SEQUENCE_NUMBER);
         range.setEndingSequenceNumber(NULL_SEQUENCE_NUMBER);
         return range;

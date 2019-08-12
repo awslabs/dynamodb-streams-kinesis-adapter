@@ -1,3 +1,8 @@
+/*
+ * Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package com.amazonaws.services.dynamodbv2.streamsadapter.functionals;
 
 import static org.junit.Assert.assertEquals;

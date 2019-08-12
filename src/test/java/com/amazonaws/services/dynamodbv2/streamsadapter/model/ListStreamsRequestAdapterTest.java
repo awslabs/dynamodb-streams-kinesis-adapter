@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */

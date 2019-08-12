@@ -14,14 +14,27 @@
 * The KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
 ## Release Notes
-### Latest Release (v1.4.0)
+### Latest Release (v1.5.x)
+* Introduces the implementation of periodic shard sync in conjunction with Amazon Kinesis Client Library v1.11.x (KCL). The default shard sync strategy is to discover new/child shards only when a consumer completes processing a shard. This default strategy constrains horizontal scaling of customer applications when consuming tables with  10,000+ partitions due to increased DescribeStream calls. Periodic shard sync guarantees that only a subset of the fleet (by default 10) will perform shard syncs, and decouples DescribeStream call volume from growth in fleet size.
+ 
+* Improves inconsistency handling in DescribeStream result aggregation by fixing any parent-open-child-open cases. This ensures that shard sync does not fail due to an assertion failure in KCL on this type of inconsistency.
+
+* Modifies finished shard lease cleanup mechanism. Leases for shards that have been completely processed are now deleted only after all their children shards have been completely processed. This will prevent shard lineage replay issues, instances of which have been reported in the past by some customers. 
+
+* Introduces `StreamsLeaseTaker` with improved load-balancing of leases among workers.
+  * SHARD_END and non-SHARD_END check-pointed leases are balanced independently.
+  * Leases are now stolen evenly from other workers instead of from only the most loaded worker. `MaxLeasesToStealAtOneTime` no longer needs to be specified by users. It is now determined automatically based on the number of leases held by the worker. The user-specified value for this is no longer used.
+ 
+* Users should continue using factory methods from `StreamsWorkerFactory` to create KCL Worker as specified in the guidance of Release v1.4.x.
+ 
+### Release (v1.4.x)
 * This release fixes an issue of high propagation delay of streams records when processing streams on small tables. This issue occurs when KCL ShardSyncer is not discovering new shards due to server side delays in shard creation or in reporting new shard creation to internal services. The code is implemented in a new implementation of IKinesisProxy interface called DynamoDBStreamsProxy which is part of the latest release.
-* This release requires Kinesis Client Library version >= 1.8.10. It is however recommended to use Kinesis Client Library version 1.9.0. Versions >= 1.8.10 have changes to allow IKinesisProxy injection into the KCL Worker builder which is required by DynamoDB Streams Kinesis Adapter v1.4.0 for
+* This release requires Kinesis Client Library version >= 1.8.10. Version 1.8.10 has changes to allow IKinesisProxy injection into the KCL Worker builder which is required by DynamoDB Streams Kinesis Adapter v1.4.x for
 injection of DynamoDBStreamsProxy into the KCL worker during initialization. Please refer to [Kinesis Client Library release notes for 1.8.10](https://github.com/awslabs/amazon-kinesis-client/blob/master/CHANGELOG.md#release-1810) for more information.
 * Suggested AWS Java SDK version >= 1.11.218
 * It is highly recommended to [configure][kcl-configuration] Kinesis Client Library with `MaxRecords = 1000` and `IdleTimeInMillis = 500` to optimize DynamoDB Streams costs.
 
-### Guidance for injecting DynamoDBStreamsProxy into KCL worker when using DynamoDB Streams Kinesis Adapter v1.4.0.
+### Guidance for injecting DynamoDBStreamsProxy into KCL worker when using DynamoDB Streams Kinesis Adapter v1.4.x.
 To fix high propagation delay problems, opt-into using DynamoDBStreamsProxy (instead of the default KinesisProxy) by using the StreamsWorkerFactory factory method (shown below). This injects an instance of DynamoDBStreamsProxy into the created KCL worker.
 ```
        final Worker worker = StreamsWorkerFactory
@@ -47,7 +60,7 @@ Add the following to your Maven pom file:
 <dependency>
     <groupId>com.amazonaws</groupId>
     <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
 </dependency>
 ```
 

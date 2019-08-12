@@ -1,6 +1,7 @@
 /*
- *  Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  SPDX-License-Identifier: Apache-2.0
+ * Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * SPDX-License-Identifier: Apache-2.0
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
@@ -74,7 +75,7 @@ public class DynamoDBStreamsProxyImportedFromKinesisProxyTest {
 
     @Before
     public void setUpTest() {
-        // Set up kinesis proxy
+        // Set up DynamoDB Streams proxy
         proxy = new DynamoDBStreamsProxy
             .Builder(TEST_STRING, mockCredentialsProvider, mockClient)
             .withDescribeStreamBackoffTimeInMillis(BACKOFF_TIME)

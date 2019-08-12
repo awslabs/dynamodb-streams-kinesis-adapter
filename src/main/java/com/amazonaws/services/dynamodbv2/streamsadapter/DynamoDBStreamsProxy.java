@@ -1,10 +1,12 @@
 /*
- *  Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  SPDX-License-Identifier: Apache-2.0
+ * Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * SPDX-License-Identifier: Apache-2.0
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.dynamodbv2.streamsadapter.model.ShardAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.utils.Sleeper;
 import com.amazonaws.services.dynamodbv2.streamsadapter.utils.ThreadSleeper;
 import com.amazonaws.services.kinesis.AmazonKinesis;
@@ -21,6 +23,7 @@ import com.amazonaws.services.kinesis.model.InvalidArgumentException;
 import com.amazonaws.services.kinesis.model.LimitExceededException;
 import com.amazonaws.services.kinesis.model.PutRecordResult;
 import com.amazonaws.services.kinesis.model.ResourceNotFoundException;
+import com.amazonaws.services.kinesis.model.SequenceNumberRange;
 import com.amazonaws.services.kinesis.model.Shard;
 import com.amazonaws.services.kinesis.model.ShardIteratorType;
 import com.amazonaws.services.kinesis.model.StreamStatus;
@@ -53,6 +56,12 @@ public class DynamoDBStreamsProxy implements IKinesisProxyExtended {
 
     private static final long DEFAULT_DESCRIBE_STREAM_BACKOFF_MILLIS = 1000L;
     private static final int DEFAULT_DESCRIBE_STREAM_RETRY_TIMES = 50;
+
+    /**
+     * This constant is used to set the END SEQUENCE NUMBER in non-leaf nodes that are seen as open
+     * due to aggregation of paginated shard lists of DescribeStream.
+     */
+    static final String END_SEQUENCE_NUMBER_TO_CLOSE_OPEN_PARENT = String.valueOf(Long.MAX_VALUE);
 
     /**
      * If jitter is not enabled, the default combination of DEFAULT_INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_BASE_MILLIS,
@@ -390,12 +399,21 @@ public class DynamoDBStreamsProxy implements IKinesisProxyExtended {
             descendants = new HashSet<>();
         }
 
-        public String getShardId() {
-            return shard.getShardId();
+        ShardNode(Shard shard, Set<String> descendants) {
+            this.shard = shard;
+            this.descendants = descendants;
         }
 
         public Shard getShard() {
             return shard;
+        }
+
+        Set<String> getDescendants() {
+            return descendants;
+        }
+
+        public String getShardId() {
+            return shard.getShardId();
         }
 
         boolean isShardClosed() {
@@ -451,6 +469,30 @@ public class DynamoDBStreamsProxy implements IKinesisProxyExtended {
             updateLastFetchedShardId(shards);
         }
 
+        private ShardNode setShardEndSequenceNumberForOpenParent(ShardNode parentNode, ShardNode childNode) {
+            Shard innerShard = parentNode.getShard();
+            SequenceNumberRange innerSequenceNumberRange = parentNode.getShard().getSequenceNumberRange();
+            if (innerSequenceNumberRange != null && innerSequenceNumberRange.getEndingSequenceNumber() == null) {
+                LOG.debug(String.format("Marked open parent shard %s of shard %s as closed",
+                    parentNode.getShard().getShardId(), childNode.getShard().getShardId()));
+                com.amazonaws.services.dynamodbv2.model.SequenceNumberRange modifiedSequenceNumberRange
+                    = new com.amazonaws.services.dynamodbv2.model.SequenceNumberRange()
+                    .withStartingSequenceNumber(innerSequenceNumberRange.getStartingSequenceNumber())
+                    .withEndingSequenceNumber(END_SEQUENCE_NUMBER_TO_CLOSE_OPEN_PARENT);
+                com.amazonaws.services.dynamodbv2.model.Shard shard
+                    = new com.amazonaws.services.dynamodbv2.model.Shard()
+                    .withShardId(innerShard.getShardId())
+                    .withParentShardId(innerShard.getParentShardId())
+                    .withSequenceNumberRange(modifiedSequenceNumberRange);
+                ShardAdapter shardAdapter = new ShardAdapter(shard);
+                ShardNode newParentNode = new ShardNode(shardAdapter, parentNode.getDescendants());
+                // parentNode has been modified, overwrite corresponding entry in the map.
+                nodes.put(newParentNode.getShardId(), newParentNode);
+                return newParentNode;
+            }
+            return parentNode;
+        }
+
         /**
          * Adds descendants only to closed leaf nodes in order to ensure all leaf nodes in
          * the graph are open.
@@ -496,7 +538,12 @@ public class DynamoDBStreamsProxy implements IKinesisProxyExtended {
             // Ensure nodes contains the parent shard, since older shards are trimmed and we will see nodes whose
             // parent shards are not in the graph.
             if (null != parentShardID && nodes.containsKey(parentShardID)) {
-                final ShardNode parentNode = nodes.get(parentShardID);
+                ShardNode parentNode = nodes.get(parentShardID);
+
+                // If parent shard is still open, it's because of pagination in DescribeStream results.
+                // We mark the parent shard as closed by setting the end sequence number to a fixed value.
+                // This ensures we do not return any parent-open-child-open type of inconsistencies in shard list.
+                parentNode = setShardEndSequenceNumberForOpenParent(parentNode, shardNode);
                 parentNode.addDescendant(shard.getShardId());
                 closedLeafNodeIds.remove(parentShardID);
             }
