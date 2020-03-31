@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -538,6 +539,12 @@ public class DynamoDBStreamsProxyTest {
         Assert.assertNull("ExclusiveStartShardId is null", argumentCaptor.getValue().getExclusiveStartShardId());
         Assert.assertEquals(expectedNumberOfShards, result.size());
         verifyExpectedShardsInResult(allShards, result, leafNodeOpenParentShardIds);
+    }
+
+    @Test
+    public void testVerifyShardClosureReportsShardAsClosed() {
+        final String shardId = UUID.randomUUID().toString();
+        Assert.assertTrue(dynamoDBStreamsProxy.verifyShardClosure(shardId).isShardClosed());
     }
 
     private void executeGetShardListTest(int numberOfInconsistentResults, boolean endWithConsistentGraph) {

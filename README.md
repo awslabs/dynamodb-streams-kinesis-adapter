@@ -14,7 +14,13 @@
 * The KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
 ## Release Notes
-### Latest Release (v1.5.x)
+### Latest Release (v1.5.1)
+* Restores compile compatibility with KCL 1.13.3.
+* Fixes a performance issue that arised when using v1.5.0 with KCL 1.12 through 1.13.2.
+* Fixes a defect where `MaxLeasesForWorker` configuration was not being propagated to `StreamsLeaseTaker`.
+* Finished (SHARD_END) leases will now only be delete after at least 6 hours have passed since the shard was created. This further reduces the chances of lineage replay.
+
+### Release (v1.5.0)
 * Introduces the implementation of periodic shard sync in conjunction with Amazon Kinesis Client Library v1.11.x (KCL). The default shard sync strategy is to discover new/child shards only when a consumer completes processing a shard. This default strategy constrains horizontal scaling of customer applications when consuming tables with  10,000+ partitions due to increased DescribeStream calls. Periodic shard sync guarantees that only a subset of the fleet (by default 10) will perform shard syncs, and decouples DescribeStream call volume from growth in fleet size.
  
 * Improves inconsistency handling in DescribeStream result aggregation by fixing any parent-open-child-open cases. This ensures that shard sync does not fail due to an assertion failure in KCL on this type of inconsistency.
@@ -24,8 +30,9 @@
 * Introduces `StreamsLeaseTaker` with improved load-balancing of leases among workers.
   * SHARD_END and non-SHARD_END check-pointed leases are balanced independently.
   * Leases are now stolen evenly from other workers instead of from only the most loaded worker. `MaxLeasesToStealAtOneTime` no longer needs to be specified by users. It is now determined automatically based on the number of leases held by the worker. The user-specified value for this is no longer used.
- 
+
 * Users should continue using factory methods from `StreamsWorkerFactory` to create KCL Worker as specified in the guidance of Release v1.4.x.
+* We strongly recommended that you create only one worker per host in your processing fleet to get optimal performance from DynamoDB Streams service.
  
 ### Release (v1.4.x)
 * This release fixes an issue of high propagation delay of streams records when processing streams on small tables. This issue occurs when KCL ShardSyncer is not discovering new shards due to server side delays in shard creation or in reporting new shard creation to internal services. The code is implemented in a new implementation of IKinesisProxy interface called DynamoDBStreamsProxy which is part of the latest release.
@@ -60,7 +67,7 @@ Add the following to your Maven pom file:
 <dependency>
     <groupId>com.amazonaws</groupId>
     <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
-    <version>1.5.0</version>
+    <version>1.5.1</version>
 </dependency>
 ```
 

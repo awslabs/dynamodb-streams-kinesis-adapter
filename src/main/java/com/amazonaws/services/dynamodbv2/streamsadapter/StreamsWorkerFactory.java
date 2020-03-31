@@ -61,7 +61,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }
@@ -88,7 +89,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }
@@ -118,7 +120,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }
@@ -148,7 +151,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }
@@ -175,7 +179,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }
@@ -205,7 +210,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }
@@ -235,7 +241,8 @@ public class StreamsWorkerFactory {
             .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
-            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis()))
+            .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
+                    .maxLeasesForWorker(config.getMaxLeasesForWorker()))
             .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
             .build();
     }

@@ -19,6 +19,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadM
  * AmazonServiceException.
  * </p>
  * Applicable API calls:
+ * <p>
  * <ul>
  * <li>DescribeStream
  * <ul>
@@ -51,6 +52,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.exceptions.UnableToReadM
  * </ul>
  * </li>
  * </ul>
+ * </p>
  */
 public class AmazonServiceExceptionTransformer {
 

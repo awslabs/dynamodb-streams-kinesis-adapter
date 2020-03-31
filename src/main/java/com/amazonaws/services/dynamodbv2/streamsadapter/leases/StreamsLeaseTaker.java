@@ -404,6 +404,7 @@ public final class StreamsLeaseTaker<T extends Lease> implements ILeaseTaker<T> 
                 int addedSoFarFromCurrentOwner = leasesAddedSoFar.getOrDefault(leaseOwner, 0);
                 // If current owner has extra leases that can be stolen and
                 // I can steal more from the current owner
+
                 if (extraLeasesWithCurrentOwner  > 0 &&
                     addedSoFarFromCurrentOwner < leaseCountToStealPerWorker) {
                     extraLeasesWithHosts.put(leaseOwner, extraLeasesWithCurrentOwner  - 1);

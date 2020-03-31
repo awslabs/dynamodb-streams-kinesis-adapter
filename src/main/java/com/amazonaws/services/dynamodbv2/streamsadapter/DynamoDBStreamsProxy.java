@@ -11,6 +11,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.utils.Sleeper;
 import com.amazonaws.services.dynamodbv2.streamsadapter.utils.ThreadSleeper;
 import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.clientlibrary.proxies.IKinesisProxyExtended;
+import com.amazonaws.services.kinesis.clientlibrary.proxies.ShardClosureVerificationResponse;
 
 import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
 import com.amazonaws.services.kinesis.model.DescribeStreamResult;
@@ -256,6 +257,18 @@ public class DynamoDBStreamsProxy implements IKinesisProxyExtended {
         this.listOfShardsSinceLastGet.set(shardGraph.getShards());
         this.shardGraph = new ShardGraph();
         return listOfShardsSinceLastGet.get();
+    }
+
+    @Override
+    /**
+     * This method gets invoked from ShutdownTask when the shard consumer is shutting down.
+     * Kinesis modified KCL to verify that the shard being closed has children, and this requires listing all shards.
+     * Since DynamoDB streams can have a large number of shards, this verification delays shard closure, and can severely
+     * degrade processing performance. For large streams, this can even cause stream processing to completely halt.
+     * Therefore, we skip performing this validation in ShutdownTask by simply returning true.
+     */
+    public ShardClosureVerificationResponse verifyShardClosure(String shardId) {
+        return () -> true; // isShardClosed -> true
     }
 
     private ShardGraphProcessingResult buildShardGraphSnapshot() {

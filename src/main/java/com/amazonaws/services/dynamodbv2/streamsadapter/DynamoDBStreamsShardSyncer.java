@@ -7,6 +7,8 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import java.io.Serializable;
 import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -48,6 +50,15 @@ import com.amazonaws.services.kinesis.model.Shard;
 public class DynamoDBStreamsShardSyncer implements ShardSyncer {
 
     private static final Log LOG = LogFactory.getLog(DynamoDBStreamsShardSyncer.class);
+    private static final String SHARD_ID_SEPARATOR = "-";
+
+    /* This retention period mostly will protect race conditions that are triggered by shards getting sealed
+     * immediately after creation. Average active lifetime of a shard is around 4 hours today, so setting retention to
+     * slightly higher helps us retain the leases for shards with active lifetime close to average for investigations
+     * and visibility. Lower values on the order of minutes may also work, but reduce operational auditability.
+     */
+    private static final Duration MIN_LEASE_RETENTION = Duration.ofHours(6);
+
     private final LeaseCleanupValidator leaseCleanupValidator;
 
     public DynamoDBStreamsShardSyncer(final LeaseCleanupValidator leaseCleanupValidator) {
@@ -714,9 +725,18 @@ public class DynamoDBStreamsShardSyncer implements ShardSyncer {
             boolean okayToDelete = true;
             for (KinesisClientLease lease : childShardLeases) {
                 if (!lease.getCheckpoint().equals(ExtendedSequenceNumber.SHARD_END)) {
-                    okayToDelete = false;
+                    okayToDelete = false; // if any child is still being processed, don't delete lease for parent
                     break;
                 }
+            }
+
+            try {
+                if (Instant.now().isBefore(getShardCreationTime(closedShardId).plus(MIN_LEASE_RETENTION))) {
+                    okayToDelete = false; // if parent was created within lease retention period, don't delete lease for parent
+                }
+            } catch (RuntimeException e) {
+                LOG.info("Could not extract creation time from ShardId [" + closedShardId +"]");
+                LOG.debug(e);
             }
 
             if (okayToDelete) {
@@ -725,6 +745,16 @@ public class DynamoDBStreamsShardSyncer implements ShardSyncer {
                 leaseManager.deleteLease(leaseForClosedShard);
             }
         }
+    }
+
+    /**
+     * This method extracts the shard creation time from the ShardId
+     *
+     * @param shardId
+     * @return instant at which the shard was created
+     */
+    private Instant getShardCreationTime(String shardId) {
+        return Instant.ofEpochMilli(Long.parseLong(shardId.split(SHARD_ID_SEPARATOR)[1]));
     }
 
     /**

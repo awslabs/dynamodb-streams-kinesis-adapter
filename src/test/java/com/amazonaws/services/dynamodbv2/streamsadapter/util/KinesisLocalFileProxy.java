@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 
 import com.amazonaws.services.kinesis.clientlibrary.proxies.IKinesisProxy;
+import com.amazonaws.services.kinesis.clientlibrary.proxies.ShardClosureVerificationResponse;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -414,6 +416,11 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
         List<Shard> shards = new LinkedList<Shard>();
         shards.addAll(shardList);
         return shards;
+    }
+
+    @Override
+    public ShardClosureVerificationResponse verifyShardClosure(String shardId) {
+        return () -> true; // isShardClosed -> true
     }
 
     /**

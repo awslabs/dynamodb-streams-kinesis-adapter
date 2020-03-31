@@ -8,13 +8,18 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import com.amazonaws.services.dynamodbv2.local.embedded.DynamoDBEmbedded;
 import com.amazonaws.services.dynamodbv2.streamsadapter.util.ExceptionThrowingLeaseManager;
@@ -229,10 +234,10 @@ public class DynamoDBStreamsShardSyncerTest {
             cleanupLeasesOfCompletedShards, false);
         List<KinesisClientLease> newLeases = leaseManager.listLeases();
         Set<String> expectedLeaseShardIds = new HashSet<>();
-        expectedLeaseShardIds.add("shardId-4");
-        expectedLeaseShardIds.add("shardId-8");
-        expectedLeaseShardIds.add("shardId-9");
-        expectedLeaseShardIds.add("shardId-10");
+        expectedLeaseShardIds.add("shardId-4-4");
+        expectedLeaseShardIds.add("shardId-8-8");
+        expectedLeaseShardIds.add("shardId-9-9");
+        expectedLeaseShardIds.add("shardId-10-10");
         Assert.assertEquals(expectedLeaseShardIds.size(), newLeases.size());
         for (KinesisClientLease lease1 : newLeases) {
             Assert.assertTrue(expectedLeaseShardIds.contains(lease1.getLeaseKey()));
@@ -262,7 +267,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<KinesisClientLease> newLeases = leaseManager.listLeases();
         Set<String> expectedLeaseShardIds = new HashSet<String>();
         for (int i = 0; i < 11; i++) {
-            expectedLeaseShardIds.add("shardId-" + i);
+            expectedLeaseShardIds.add("shardId-" + i + "-" + i);
         }
         Assert.assertEquals(expectedLeaseShardIds.size(), newLeases.size());
         for (KinesisClientLease lease1 : newLeases) {
@@ -293,7 +298,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<KinesisClientLease> newLeases = leaseManager.listLeases();
         Set<String> expectedLeaseShardIds = new HashSet<String>();
         for (int i = 0; i < 11; i++) {
-            expectedLeaseShardIds.add("shardId-" + i);
+            expectedLeaseShardIds.add("shardId-" + i + "-" + i);
         }
         Assert.assertEquals(expectedLeaseShardIds.size(), newLeases.size());
         for (KinesisClientLease lease1 : newLeases) {
@@ -336,7 +341,7 @@ public class DynamoDBStreamsShardSyncerTest {
         IOException {
         List<Shard> shards = constructShardListForGraphA();
         Shard shard = shards.get(5);
-        Assert.assertEquals("shardId-5", shard.getShardId());
+        Assert.assertEquals("shardId-5-5", shard.getShardId());
         SequenceNumberRange range = shard.getSequenceNumberRange();
         // shardId-5 in graph A has two children (shardId-9 and shardId-10).  if shardId-5
         // is not closed, those children should be ignored when syncing shards, no leases
@@ -351,9 +356,9 @@ public class DynamoDBStreamsShardSyncerTest {
             cleanupLeasesOfCompletedShards, true);
         List<KinesisClientLease> newLeases = leaseManager.listLeases();
         Set<String> expectedLeaseShardIds = new HashSet<String>();
-        expectedLeaseShardIds.add("shardId-4");
-        expectedLeaseShardIds.add("shardId-5");
-        expectedLeaseShardIds.add("shardId-8");
+        expectedLeaseShardIds.add("shardId-4-4");
+        expectedLeaseShardIds.add("shardId-5-5");
+        expectedLeaseShardIds.add("shardId-8-8");
         Assert.assertEquals(expectedLeaseShardIds.size(), newLeases.size());
         for (KinesisClientLease lease1 : newLeases) {
             Assert.assertTrue(expectedLeaseShardIds.contains(lease1.getLeaseKey()));
@@ -584,7 +589,7 @@ public class DynamoDBStreamsShardSyncerTest {
         Map<String, ExtendedSequenceNumber> expectedShardIdToCheckpointMap =
             new HashMap<String, ExtendedSequenceNumber>();
         for (int i = 0; i < 11; i++) {
-            expectedShardIdToCheckpointMap.put("shardId-" + i, extendedSequenceNumber);
+            expectedShardIdToCheckpointMap.put("shardId-" + i + "-" + i, extendedSequenceNumber);
         }
         Assert.assertEquals(expectedShardIdToCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease1 : newLeases) {
@@ -593,11 +598,11 @@ public class DynamoDBStreamsShardSyncerTest {
             Assert.assertEquals(expectedCheckpoint, lease1.getCheckpoint());
         }
 
-        KinesisClientLease closedShardLease = leaseManager.getLease("shardId-0");
+        KinesisClientLease closedShardLease = leaseManager.getLease("shardId-0-0");
         closedShardLease.setCheckpoint(ExtendedSequenceNumber.SHARD_END);
         leaseManager.updateLease(closedShardLease);
         expectedShardIdToCheckpointMap.remove(closedShardLease.getLeaseKey());
-        KinesisClientLease childShardLease = leaseManager.getLease("shardId-6");
+        KinesisClientLease childShardLease = leaseManager.getLease("shardId-6-6");
         childShardLease.setCheckpoint(ExtendedSequenceNumber.SHARD_END);
         leaseManager.updateLease(childShardLease);
         expectedShardIdToCheckpointMap.put(childShardLease.getLeaseKey(), ExtendedSequenceNumber.SHARD_END);
@@ -742,20 +747,20 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = constructShardListForGraphA();
         List<KinesisClientLease> currentLeases = new ArrayList<KinesisClientLease>();
 
-        currentLeases.add(newLease("shardId-3"));
-        currentLeases.add(newLease("shardId-4"));
-        currentLeases.add(newLease("shardId-5"));
+        currentLeases.add(newLease("shardId-3-3"));
+        currentLeases.add(newLease("shardId-4-4"));
+        currentLeases.add(newLease("shardId-5-5"));
 
         List<KinesisClientLease> newLeases =
             shardSyncer.determineNewLeasesToCreate(shards, currentLeases, INITIAL_POSITION_LATEST);
         Map<String, ExtendedSequenceNumber> expectedShardIdCheckpointMap =
             new HashMap<String, ExtendedSequenceNumber>();
-        expectedShardIdCheckpointMap.put("shardId-8", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-9", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-10", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-6", ExtendedSequenceNumber.LATEST);
-        expectedShardIdCheckpointMap.put("shardId-2", ExtendedSequenceNumber.LATEST);
-        expectedShardIdCheckpointMap.put("shardId-7", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-8-8", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-9-9", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-10-10", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-6-6", ExtendedSequenceNumber.LATEST);
+        expectedShardIdCheckpointMap.put("shardId-2-2", ExtendedSequenceNumber.LATEST);
+        expectedShardIdCheckpointMap.put("shardId-7-7", ExtendedSequenceNumber.TRIM_HORIZON);
 
         Assert.assertEquals(expectedShardIdCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease : newLeases) {
@@ -780,18 +785,18 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = constructShardListForGraphA();
         List<KinesisClientLease> currentLeases = new ArrayList<KinesisClientLease>();
 
-        currentLeases.add(newLease("shardId-4"));
-        currentLeases.add(newLease("shardId-5"));
-        currentLeases.add(newLease("shardId-7"));
+        currentLeases.add(newLease("shardId-4-4"));
+        currentLeases.add(newLease("shardId-5-5"));
+        currentLeases.add(newLease("shardId-7-7"));
 
         List<KinesisClientLease> newLeases =
             shardSyncer.determineNewLeasesToCreate(shards, currentLeases, INITIAL_POSITION_LATEST);
         Map<String, ExtendedSequenceNumber> expectedShardIdCheckpointMap =
             new HashMap<String, ExtendedSequenceNumber>();
-        expectedShardIdCheckpointMap.put("shardId-8", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-9", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-10", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-6", ExtendedSequenceNumber.LATEST);
+        expectedShardIdCheckpointMap.put("shardId-8-8", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-9-9", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-10-10", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-6-6", ExtendedSequenceNumber.LATEST);
 
         Assert.assertEquals(expectedShardIdCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease : newLeases) {
@@ -816,22 +821,22 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = constructShardListForGraphA();
         List<KinesisClientLease> currentLeases = new ArrayList<KinesisClientLease>();
 
-        currentLeases.add(newLease("shardId-3"));
-        currentLeases.add(newLease("shardId-4"));
-        currentLeases.add(newLease("shardId-5"));
+        currentLeases.add(newLease("shardId-3-3"));
+        currentLeases.add(newLease("shardId-4-4"));
+        currentLeases.add(newLease("shardId-5-5"));
 
         List<KinesisClientLease> newLeases =
             shardSyncer.determineNewLeasesToCreate(shards, currentLeases, INITIAL_POSITION_TRIM_HORIZON);
         Map<String, ExtendedSequenceNumber> expectedShardIdCheckpointMap =
             new HashMap<String, ExtendedSequenceNumber>();
-        expectedShardIdCheckpointMap.put("shardId-8", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-9", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-10", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-6", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-2", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-7", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-0", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-1", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-8-8", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-9-9", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-10-10", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-6-6", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-2-2", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-7-7", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-0-0", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-1-1", ExtendedSequenceNumber.TRIM_HORIZON);
 
         Assert.assertEquals(expectedShardIdCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease : newLeases) {
@@ -856,20 +861,20 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = constructShardListForGraphA();
         List<KinesisClientLease> currentLeases = new ArrayList<KinesisClientLease>();
 
-        currentLeases.add(newLease("shardId-4"));
-        currentLeases.add(newLease("shardId-5"));
-        currentLeases.add(newLease("shardId-7"));
+        currentLeases.add(newLease("shardId-4-4"));
+        currentLeases.add(newLease("shardId-5-5"));
+        currentLeases.add(newLease("shardId-7-7"));
 
         List<KinesisClientLease> newLeases =
             shardSyncer.determineNewLeasesToCreate(shards, currentLeases, INITIAL_POSITION_TRIM_HORIZON);
         Map<String, ExtendedSequenceNumber> expectedShardIdCheckpointMap =
             new HashMap<String, ExtendedSequenceNumber>();
-        expectedShardIdCheckpointMap.put("shardId-8", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-9", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-10", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-6", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-0", ExtendedSequenceNumber.TRIM_HORIZON);
-        expectedShardIdCheckpointMap.put("shardId-1", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-8-8", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-9-9", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-10-10", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-6-6", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-0-0", ExtendedSequenceNumber.TRIM_HORIZON);
+        expectedShardIdCheckpointMap.put("shardId-1-1", ExtendedSequenceNumber.TRIM_HORIZON);
 
         Assert.assertEquals(expectedShardIdCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease : newLeases) {
@@ -922,21 +927,21 @@ public class DynamoDBStreamsShardSyncerTest {
         List<KinesisClientLease> currentLeases = new ArrayList<KinesisClientLease>();
 
 
-        currentLeases.add(newLease("shardId-3"));
-        currentLeases.add(newLease("shardId-4"));
-        currentLeases.add(newLease("shardId-5"));
+        currentLeases.add(newLease("shardId-3-3"));
+        currentLeases.add(newLease("shardId-4-4"));
+        currentLeases.add(newLease("shardId-5-5"));
 
         List<KinesisClientLease> newLeases =
             shardSyncer.determineNewLeasesToCreate(shards, currentLeases, INITIAL_POSITION_AT_TIMESTAMP);
         Map<String, ExtendedSequenceNumber> expectedShardIdCheckpointMap = new HashMap<String, ExtendedSequenceNumber>();
-        expectedShardIdCheckpointMap.put("shardId-8", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-9", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-10", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-6", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-2", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-7", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-0", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-1", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-8-8", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-9-9", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-10-10", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-6-6", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-2-2", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-7-7", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-0-0", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-1-1", ExtendedSequenceNumber.AT_TIMESTAMP);
 
         Assert.assertEquals(expectedShardIdCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease : newLeases) {
@@ -961,19 +966,19 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = constructShardListForGraphA();
         List<KinesisClientLease> currentLeases = new ArrayList<KinesisClientLease>();
 
-        currentLeases.add(newLease("shardId-4"));
-        currentLeases.add(newLease("shardId-5"));
-        currentLeases.add(newLease("shardId-7"));
+        currentLeases.add(newLease("shardId-4-4"));
+        currentLeases.add(newLease("shardId-5-5"));
+        currentLeases.add(newLease("shardId-7-7"));
 
         List<KinesisClientLease> newLeases =
             shardSyncer.determineNewLeasesToCreate(shards, currentLeases, INITIAL_POSITION_AT_TIMESTAMP);
         Map<String, ExtendedSequenceNumber> expectedShardIdCheckpointMap = new HashMap<String, ExtendedSequenceNumber>();
-        expectedShardIdCheckpointMap.put("shardId-8", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-9", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-10", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-6", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-0", ExtendedSequenceNumber.AT_TIMESTAMP);
-        expectedShardIdCheckpointMap.put("shardId-1", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-8-8", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-9-9", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-10-10", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-6-6", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-0-0", ExtendedSequenceNumber.AT_TIMESTAMP);
+        expectedShardIdCheckpointMap.put("shardId-1-1", ExtendedSequenceNumber.AT_TIMESTAMP);
 
         Assert.assertEquals(expectedShardIdCheckpointMap.size(), newLeases.size());
         for (KinesisClientLease lease : newLeases) {
@@ -1040,19 +1045,19 @@ public class DynamoDBStreamsShardSyncerTest {
         HashKeyRange hashRange9 = ShardObjectHelper.newHashKeyRange("500", "799");
         HashKeyRange hashRange10 = ShardObjectHelper.newHashKeyRange("800", ShardObjectHelper.MAX_HASH_KEY);
 
-        shards.add(ShardObjectHelper.newShard("shardId-0", null, null, range0, hashRange0));
-        shards.add(ShardObjectHelper.newShard("shardId-1", null, null, range0, hashRange1));
-        shards.add(ShardObjectHelper.newShard("shardId-2", null, null, range0, hashRange2));
-        shards.add(ShardObjectHelper.newShard("shardId-3", null, null, range0, hashRange3));
-        shards.add(ShardObjectHelper.newShard("shardId-4", null, null, range1, hashRange4));
-        shards.add(ShardObjectHelper.newShard("shardId-5", null, null, range2, hashRange5));
+        shards.add(ShardObjectHelper.newShard("shardId-0-0", null, null, range0, hashRange0));
+        shards.add(ShardObjectHelper.newShard("shardId-1-1", null, null, range0, hashRange1));
+        shards.add(ShardObjectHelper.newShard("shardId-2-2", null, null, range0, hashRange2));
+        shards.add(ShardObjectHelper.newShard("shardId-3-3", null, null, range0, hashRange3));
+        shards.add(ShardObjectHelper.newShard("shardId-4-4", null, null, range1, hashRange4));
+        shards.add(ShardObjectHelper.newShard("shardId-5-5", null, null, range2, hashRange5));
 
-        shards.add(ShardObjectHelper.newShard("shardId-6", "shardId-0", "shardId-1", range3, hashRange6));
-        shards.add(ShardObjectHelper.newShard("shardId-7", "shardId-2", "shardId-3", range3, hashRange7));
+        shards.add(ShardObjectHelper.newShard("shardId-6-6", "shardId-0-0", "shardId-1-1", range3, hashRange6));
+        shards.add(ShardObjectHelper.newShard("shardId-7-7", "shardId-2-2", "shardId-3-3", range3, hashRange7));
 
-        shards.add(ShardObjectHelper.newShard("shardId-8", "shardId-6", "shardId-7", range4, hashRange8));
-        shards.add(ShardObjectHelper.newShard("shardId-9", "shardId-5", null, range4, hashRange9));
-        shards.add(ShardObjectHelper.newShard("shardId-10", null, "shardId-5", range4, hashRange10));
+        shards.add(ShardObjectHelper.newShard("shardId-8-8", "shardId-6-6", "shardId-7-7", range4, hashRange8));
+        shards.add(ShardObjectHelper.newShard("shardId-9-9", "shardId-5-5", null, range4, hashRange9));
+        shards.add(ShardObjectHelper.newShard("shardId-10-10", null, "shardId-5-5", range4, hashRange10));
 
         return shards;
     }
@@ -1465,7 +1470,7 @@ public class DynamoDBStreamsShardSyncerTest {
     @Test
     public final void testCleanupLeaseForClosedShard()
         throws DependencyException, InvalidStateException, ProvisionedThroughputException {
-        String closedShardId = "shardId-2";
+        String closedShardId = "shardId-2-2";
         KinesisClientLease leaseForClosedShard = newLease(closedShardId);
         leaseForClosedShard.setCheckpoint(new ExtendedSequenceNumber("1234"));
         leaseManager.createLeaseIfNotExists(leaseForClosedShard);
@@ -1474,11 +1479,11 @@ public class DynamoDBStreamsShardSyncerTest {
         List<KinesisClientLease> trackedLeases = new ArrayList<>();
         Set<String> parentShardIds = new HashSet<>();
         parentShardIds.add(closedShardId);
-        String childShardId1 = "shardId-5";
+        String childShardId1 = "shardId-5-5";
         KinesisClientLease childLease1 = newLease(childShardId1);
         childLease1.setParentShardIds(parentShardIds);
         childLease1.setCheckpoint(ExtendedSequenceNumber.TRIM_HORIZON);
-        String childShardId2 = "shardId-7";
+        String childShardId2 = "shardId-7-7";
         KinesisClientLease childLease2 = newLease(childShardId2);
         childLease2.setParentShardIds(parentShardIds);
         childLease2.setCheckpoint(ExtendedSequenceNumber.TRIM_HORIZON);
@@ -1538,6 +1543,48 @@ public class DynamoDBStreamsShardSyncerTest {
         leaseManager.updateLease(childLease2);
         shardSyncer.cleanupLeaseForClosedShard(closedShardId, childShardIds, trackedLeaseMap, leaseManager);
         Assert.assertNull(leaseManager.getLease(closedShardId));
+    }
+
+    /* Sets up parent and child leases with SHARD_END checkpoints and invokes cleanup for parent, then asserts
+     * whether cleanup expectation matches reality.
+     */
+    private final void testMinLeaseRetentionPeriodWhenCleaningUpLeaseForClosedShard(final String closedShardId, boolean deleteExpected) throws Exception {
+        final KinesisClientLease closedShardLease = createLease(closedShardId, Collections.emptySet(), ExtendedSequenceNumber.SHARD_END);
+        final String childShardId = shardId(Instant.now());
+        final KinesisClientLease childLease = createLease(childShardId, Collections.singleton(closedShardId), ExtendedSequenceNumber.SHARD_END);
+        final Set<String> childShardIds = Collections.singleton(childShardId);
+        final List<KinesisClientLease> trackedLeases = Arrays.asList(closedShardLease, childLease);
+        final Map<String, KinesisClientLease> trackedLeaseMap = shardSyncer.constructShardIdToKCLLeaseMap(trackedLeases);
+        shardSyncer.cleanupLeaseForClosedShard(closedShardId, childShardIds, trackedLeaseMap, leaseManager);
+        boolean wasDeleted = leaseManager.getLease(closedShardId) == null;
+        Assert.assertEquals(deleteExpected, wasDeleted);
+    }
+
+    /* when leases for all child shards have reached SHARD_END and current shard is more than 6 hours old,
+     * then delete the SHARD_END lease for the current shard.
+     */
+    @Test
+    public final void testCleanupLeaseForClosedShardOlderThanMinLeaseRetentionPeriod() throws Exception {
+        final String closedShardId = shardId(Instant.now().minus(Duration.ofHours(7)));
+        testMinLeaseRetentionPeriodWhenCleaningUpLeaseForClosedShard(closedShardId, true);
+    }
+
+    /* when leases for all child shards have reached SHARD_END but the current shard is not yet 6 hours old,
+     * then don't delete the SHARD_END lease for the current shard.
+     */
+    @Test
+    public final void testCleanupLeaseForClosedShardCreatedWithinMinLeaseRetentionPeriod() throws Exception {
+        final String closedShardId = shardId(Instant.now().minus(Duration.ofMinutes(10)));
+        testMinLeaseRetentionPeriodWhenCleaningUpLeaseForClosedShard(closedShardId, false);
+    }
+
+    /* when creation time cannot be determined from ShardId, and leases for all child shards have reached
+     * SHARD_END, then delete the lease for the current shard.
+     */
+    @Test
+    public final void testCleanupLeaseForClosedShardWhenCreateTimeCannotBeParsed() throws Exception {
+        final String closedShardId = "shardId-xyz-abc";
+        testMinLeaseRetentionPeriodWhenCleaningUpLeaseForClosedShard(closedShardId, true);
     }
 
     /**
@@ -1710,8 +1757,21 @@ public class DynamoDBStreamsShardSyncerTest {
     private KinesisClientLease newLease(String shardId) {
         KinesisClientLease lease = new KinesisClientLease();
         lease.setLeaseKey(shardId);
-
         return lease;
+    }
+
+    private KinesisClientLease createLease(String shardId, Set<String> parentShardIds, ExtendedSequenceNumber checkpoint) throws Exception {
+        KinesisClientLease lease = new KinesisClientLease();
+        lease.setLeaseKey(shardId);
+        lease.setParentShardIds(parentShardIds);
+        lease.setCheckpoint(checkpoint);
+        leaseManager.createLeaseIfNotExists(lease);
+        return lease;
+    }
+
+    private String shardId(Instant createTime) {
+        final String randomSuffix = UUID.randomUUID().toString().split("-")[0];
+        return "shardId-0000000" + createTime.toEpochMilli() + "-" + randomSuffix;
     }
 
 }
