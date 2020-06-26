@@ -8,6 +8,8 @@ package com.amazonaws.services.dynamodbv2.streamsadapter.functionals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.amazonaws.services.dynamodbv2.model.BillingMode;
+import com.amazonaws.services.dynamodbv2.model.BillingModeSummary;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
@@ -78,5 +80,30 @@ public class KinesisParametersTest extends FunctionalTestBase {
         LOG.info("Num getRecords calls: " + numGetRecordsCalls);
         // Atleast 1 and atmost 2 getRecords/processRecords calls should have been made
         assertTrue(numGetRecordsCalls > 0 && numGetRecordsCalls <= 3);
+    }
+
+    /**
+     * This test configures the worker with a non-default billing mode and ensures that the billing mode is passed
+     * through to the created lease table.
+     */
+    @Test
+    public void billingModeTest() throws Exception {
+        KinesisClientLibConfiguration workerConfig =
+                new KinesisClientLibConfiguration(leaseTable, streamId, credentials, KCL_WORKER_ID)
+                        .withBillingMode(BillingMode.PAY_PER_REQUEST);
+
+        startKCLWorker(workerConfig);
+
+        while (recordProcessorFactory.getNumRecordsProcessed() < 0) {
+            LOG.info("Sleep till RecordProcessor is initialized");
+            Thread.sleep(THREAD_SLEEP_2S);
+        }
+
+        shutDownKCLWorker();
+
+        DescribeTableResult describeTableResult = TestUtil.describeTable(dynamoDBClient, leaseTable);
+        TableDescription leaseTableDescription = describeTableResult.getTable();
+        BillingModeSummary billingModeSummary = leaseTableDescription.getBillingModeSummary();
+        assertEquals(BillingMode.PAY_PER_REQUEST.toString(), billingModeSummary.getBillingMode());
     }
 }
