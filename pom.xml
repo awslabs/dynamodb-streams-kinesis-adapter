@@ -23,8 +23,8 @@
     </licenses>
 
     <properties>
-        <aws-java-sdk.version>1.11.728</aws-java-sdk.version>
-        <amazon-kinesis-client.version>1.13.3</amazon-kinesis-client.version>
+        <aws-java-sdk.version>1.11.844</aws-java-sdk.version>
+        <amazon-kinesis-client.version>1.14.2</amazon-kinesis-client.version>
         <powermock.version>1.6.2</powermock.version>
         <aws.dynamodblocal.version>[1.12,2.0)</aws.dynamodblocal.version>
         <maven.dependency.version>3.0.0</maven.dependency.version>

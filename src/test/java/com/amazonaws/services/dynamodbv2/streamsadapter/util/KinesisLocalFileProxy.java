@@ -5,6 +5,7 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 
+import com.amazonaws.services.kinesis.model.ShardFilter;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -416,6 +417,11 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
         List<Shard> shards = new LinkedList<Shard>();
         shards.addAll(shardList);
         return shards;
+    }
+
+    @Override
+    public List<Shard> getShardListWithFilter(ShardFilter shardFilter) throws ResourceNotFoundException {
+        return getShardList();
     }
 
     @Override
