@@ -8,6 +8,11 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazonaws.services.cloudwatch.model.StandardUnit;
+import com.amazonaws.services.dynamodbv2.model.StreamRecord;
+import com.amazonaws.services.kinesis.metrics.impl.MetricsHelper;
+import com.amazonaws.services.kinesis.metrics.interfaces.IMetricsScope;
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -22,6 +27,7 @@ import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreams;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClient;
+import com.amazonaws.services.dynamodbv2.model.Record;
 import com.amazonaws.services.dynamodbv2.model.Shard;
 import com.amazonaws.services.dynamodbv2.model.StreamDescription;
 import com.amazonaws.services.dynamodbv2.model.TrimmedDataAccessException;
@@ -86,6 +92,7 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
     private final AdapterRequestCache requestCache = new AdapterRequestCache(REQUEST_CACHE_CAPACITY);
 
+    private static final String MILLIS_BEHIND_LATEST_METRIC = "MillisBehindLatest";
 
     /**
      * Enum values decides the behavior of application when customer loses some records when KCL lags behind
@@ -353,6 +360,9 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
 
         try {
             com.amazonaws.services.dynamodbv2.model.GetShardIteratorResult result = internalClient.getShardIterator(requestAdapter);
+            if (result!= null && result.getShardIterator() == null && result.getSdkResponseMetadata() != null) {
+                LOG.info("RequestId for getShardIterator call which resulted in ShardEnd: " + result.getSdkResponseMetadata().getRequestId());
+            }
             return new GetShardIteratorResultAdapter(result);
         } catch (TrimmedDataAccessException e) {
             if (skipRecordsBehavior == SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON) {
@@ -434,8 +444,22 @@ public class AmazonDynamoDBStreamsAdapterClient extends AbstractAmazonKinesis {
         }
         GetRecordsRequestAdapter requestAdapter = new GetRecordsRequestAdapter(getRecordsRequest);
         requestCache.addEntry(getRecordsRequest, requestAdapter);
+
         try {
             com.amazonaws.services.dynamodbv2.model.GetRecordsResult result = internalClient.getRecords(requestAdapter);
+            List<Record> records = result.getRecords();
+            if (records != null && !records.isEmpty()) {
+                final int lastIndex = result.getRecords().size() - 1;
+                final StreamRecord lastStreamRecord = result.getRecords().get(lastIndex).getDynamodb();
+                final double lastApproximateCreationTimestamp = lastStreamRecord.getApproximateCreationDateTime().getTime();
+                final double millisBehindLatest = Math.max(System.currentTimeMillis() - lastApproximateCreationTimestamp, 0);
+                IMetricsScope scope = MetricsHelper.getMetricsScope();
+                scope.addData(MILLIS_BEHIND_LATEST_METRIC, millisBehindLatest, StandardUnit.Milliseconds, MetricsLevel.SUMMARY);
+            }
+
+            if (result != null && result.getNextShardIterator() == null && result.getSdkResponseMetadata() != null) {
+                LOG.info("RequestId for getRecords which resulted in ShardEnd: " + result.getSdkResponseMetadata().getRequestId());
+            }
             return new GetRecordsResultAdapter(result, generateRecordBytes);
         } catch (AmazonServiceException e) {
             throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(e, skipRecordsBehavior);

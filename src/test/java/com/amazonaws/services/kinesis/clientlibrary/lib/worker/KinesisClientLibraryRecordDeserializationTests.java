@@ -64,7 +64,7 @@ public class KinesisClientLibraryRecordDeserializationTests {
     private static final Shard SHARD = new Shard().withShardId(SHARD_ID).withSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber(SEQUENCE_NUMBER_0));
     private static final StreamDescription STREAM_DESCRIPTION =
         new StreamDescription().withCreationRequestDateTime(new Date()).withKeySchema().withShards(SHARD).withStreamArn(STREAM_NAME).withStreamStatus(StreamStatus.ENABLED);
-    private static final StreamRecord STREAM_RECORD_0 = new StreamRecord().withSequenceNumber(SEQUENCE_NUMBER_0);
+    private static final StreamRecord STREAM_RECORD_0 = new StreamRecord().withSequenceNumber(SEQUENCE_NUMBER_0).withApproximateCreationDateTime(new Date());
     private static final com.amazonaws.services.dynamodbv2.model.Record RECORD_0 = new com.amazonaws.services.dynamodbv2.model.Record().withDynamodb(STREAM_RECORD_0);
     private static final List<com.amazonaws.services.dynamodbv2.model.Record> RECORDS = Arrays.asList(RECORD_0);
 

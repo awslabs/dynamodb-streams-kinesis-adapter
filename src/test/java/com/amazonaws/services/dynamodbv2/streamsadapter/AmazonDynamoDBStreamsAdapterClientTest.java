@@ -6,22 +6,36 @@
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyDouble;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isA;
 import static org.mockito.Matchers.isNotNull;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.verifyNew;
 import static org.powermock.api.mockito.PowerMockito.when;
 import static org.powermock.api.mockito.PowerMockito.whenNew;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
+
+import com.amazonaws.services.cloudwatch.model.StandardUnit;
+import com.amazonaws.services.kinesis.metrics.impl.CWMetricsScope;
+import com.amazonaws.services.kinesis.metrics.impl.MetricsHelper;
+import com.amazonaws.services.kinesis.metrics.interfaces.IMetricsScope;
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -82,6 +96,8 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
 
     private static final String DUMMY_SECRET_KEY = "dummySecretKey";
 
+    private static final String MILLIS_BEHIND_LATEST_METRIC = "MillisBehindLatest";
+
     private static final ClientConfiguration CLIENT_CONFIGURATION = new ClientConfiguration().withProtocol(Protocol.HTTPS).withGzip(true);
 
     private static final com.amazonaws.auth.AWSCredentials CREDENTIALS = new BasicAWSCredentials(DUMMY_ACCESS_KEY, DUMMY_SECRET_KEY);
@@ -104,7 +120,8 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
     private static final Map<String, AttributeValue> KEYS = Collections.emptyMap();
 
     private static final StreamRecord STREAM_RECORD =
-        new StreamRecord().withKeys(KEYS).withSequenceNumber(TEST_STRING).withSizeBytes(0L).withStreamViewType(StreamViewType.KEYS_ONLY);
+        new StreamRecord().withKeys(KEYS).withSequenceNumber(TEST_STRING).withSizeBytes(0L).withStreamViewType(StreamViewType.KEYS_ONLY).withApproximateCreationDateTime(new Date());
+
 
     private static final Record RECORD =
         new Record().withAwsRegion(TEST_STRING).withDynamodb(STREAM_RECORD).withEventID(TEST_STRING).withEventName(OperationType.INSERT).withEventSource(TEST_STRING)
@@ -528,6 +545,126 @@ public class AmazonDynamoDBStreamsAdapterClientTest {
         assertSameObject(expectedResponseMetadata, actualResponseMetadata);
     }
 
+    @Test
+    public void testRequestIdForShardEndForGetRecords() {
+        ResponseMetadata expectedResponseMetadata = getMockResponseMetadata();
+        GetRecordsResult getRecordsResult = new GetRecordsResult().withNextShardIterator(null);
+        getRecordsResult.setSdkResponseMetadata(expectedResponseMetadata);
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsRequestAdapter.class))).thenReturn(getRecordsResult);
+        adapterClient.getRecords(new GetRecordsRequest());
+
+        verify(expectedResponseMetadata, times(1)).getRequestId();
+    }
+
+    @Test
+    public void testRequestIdForShardEndForGetShardIterator() {
+        ResponseMetadata expectedResponseMetadata = getMockResponseMetadata();
+        GetShardIteratorResult getShardIteratorResult = new GetShardIteratorResult().withShardIterator(null);
+        getShardIteratorResult.setSdkResponseMetadata(expectedResponseMetadata);
+        when(mockClient.getShardIterator(any(com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorRequestAdapter.class))).thenReturn(getShardIteratorResult);
+        adapterClient.getShardIterator(new GetShardIteratorRequest());
+
+        verify(expectedResponseMetadata, times(1)).getRequestId();
+    }
+
+    @Test
+    public void testRequestIdNotInvokedForGetRecords() {
+        ResponseMetadata expectedResponseMetadata = getMockResponseMetadata();
+        GetRecordsResult getRecordsResult = new GetRecordsResult().withNextShardIterator("test-shard-iterator");
+        getRecordsResult.setSdkResponseMetadata(expectedResponseMetadata);
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.streamsadapter.model.GetRecordsRequestAdapter.class))).thenReturn(getRecordsResult);
+        adapterClient.getRecords(new GetRecordsRequest());
+
+        verify(expectedResponseMetadata, times(0)).getRequestId();
+    }
+
+    @Test
+    public void testRequestIdNotInvokedForGetShardIterator() {
+        ResponseMetadata expectedResponseMetadata = getMockResponseMetadata();
+        GetShardIteratorResult getShardIteratorResult = new GetShardIteratorResult().withShardIterator("test-shard-iterator");
+        getShardIteratorResult.setSdkResponseMetadata(expectedResponseMetadata);
+        when(mockClient.getShardIterator(any(com.amazonaws.services.dynamodbv2.streamsadapter.model.GetShardIteratorRequestAdapter.class))).thenReturn(getShardIteratorResult);
+        adapterClient.getShardIterator(new GetShardIteratorRequest());
+
+        verify(expectedResponseMetadata, times(0)).getRequestId();
+    }
+
+    @Test
+    public void testMillisBehindNowPublished() {
+
+        final StreamRecord streamRecord =
+                new StreamRecord().withKeys(KEYS).withSequenceNumber(TEST_STRING).withSizeBytes(0L).withStreamViewType(StreamViewType.KEYS_ONLY).withApproximateCreationDateTime(new Date(System.currentTimeMillis() - 250));
+
+        final Record record =
+                new Record().withAwsRegion(TEST_STRING).withDynamodb(streamRecord).withEventID(TEST_STRING).withEventName(OperationType.INSERT).withEventSource(TEST_STRING)
+                            .withEventVersion(TEST_STRING);
+
+        final double maxMillisBehindLatest = 500.0;
+        final double minMillisBehindLatest = 250.0;
+
+        Record record1 = spy(record);
+        Record record2 = spy(record);
+
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(new GetRecordsResult().withRecords(Arrays.asList(record1, record2)));
+        IMetricsScope mockScope = mock(CWMetricsScope.class);
+        MetricsHelper.setMetricsScope(mockScope);
+        adapterClient.getRecords(new GetRecordsRequest().withShardIterator(TEST_STRING));
+        verify(record1, times(0)).getDynamodb();
+        verify(record2, times(1)).getDynamodb();
+        
+        ArgumentCaptor<Double> argument = ArgumentCaptor.forClass(Double.class);
+        verify(mockScope, times(1)).addData(eq(MILLIS_BEHIND_LATEST_METRIC), argument.capture(), eq(StandardUnit.Milliseconds), eq(MetricsLevel.SUMMARY));
+        //Verifying the order of magnitude of MillisBehindNow falls within the range
+        assertTrue(argument.getValue() < maxMillisBehindLatest && argument.getValue() >= minMillisBehindLatest);
+        MetricsHelper.unsetMetricsScope();
+    }
+
+    @Test
+    public void testMillisBehindNowWithoutRecords() {
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(new GetRecordsResult());
+        IMetricsScope mockScope = mock(CWMetricsScope.class);
+        MetricsHelper.setMetricsScope(mockScope);
+        adapterClient.getRecords(new GetRecordsRequest().withShardIterator(TEST_STRING));
+        verify(mockScope, times(0)).addData(eq(MILLIS_BEHIND_LATEST_METRIC), anyDouble(), eq(StandardUnit.Milliseconds), eq(MetricsLevel.SUMMARY));
+        MetricsHelper.unsetMetricsScope();
+    }
+
+    @Test
+    public void testMillisBehindNowWithEmptyRecordsList() {
+
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(new GetRecordsResult().withRecords(Arrays.asList()));
+        IMetricsScope mockScope = mock(CWMetricsScope.class);
+        MetricsHelper.setMetricsScope(mockScope);
+        adapterClient.getRecords(new GetRecordsRequest().withShardIterator(TEST_STRING));
+        verify(mockScope, times(0)).addData(eq(MILLIS_BEHIND_LATEST_METRIC), anyDouble(), eq(StandardUnit.Milliseconds), eq(MetricsLevel.SUMMARY));
+        MetricsHelper.unsetMetricsScope();
+    }
+
+    @Test
+    public void testNegativeMillisBehindNow() {
+        StreamRecord streamRecordWithHighApproximateCreationTime =
+                new StreamRecord().withKeys(KEYS).withSequenceNumber(TEST_STRING).withSizeBytes(0L).withStreamViewType(StreamViewType.KEYS_ONLY).withApproximateCreationDateTime(new Date(System.currentTimeMillis() + 100000));
+
+        Record recordToTestNegativeMillisBehindLatest =
+                new Record().withAwsRegion(TEST_STRING).withDynamodb(streamRecordWithHighApproximateCreationTime).withEventID(TEST_STRING).withEventName(OperationType.INSERT).withEventSource(TEST_STRING)
+                            .withEventVersion(TEST_STRING);
+
+        IMetricsScope mockScope = mock(CWMetricsScope.class);
+        MetricsHelper.setMetricsScope(mockScope);
+        when(mockClient.getRecords(any(com.amazonaws.services.dynamodbv2.model.GetRecordsRequest.class))).thenReturn(new GetRecordsResult().withRecords(recordToTestNegativeMillisBehindLatest));
+        adapterClient.getRecords(new GetRecordsRequest().withShardIterator(TEST_STRING));
+        verify(mockScope, times(1)).addData(eq(MILLIS_BEHIND_LATEST_METRIC), eq(0.0), eq(StandardUnit.Milliseconds), eq(MetricsLevel.SUMMARY));
+        MetricsHelper.unsetMetricsScope();
+    }
+
+    public ResponseMetadata getMockResponseMetadata() {
+        Map<String, String> responseHeaders = new HashMap<String, String>();
+        responseHeaders.put("AWS_REQUEST_ID", "test-requestId");
+        ResponseMetadata responseMetadata = new ResponseMetadata(responseHeaders);
+        ResponseMetadata expectedResponseMetadata = spy(responseMetadata);
+        return expectedResponseMetadata;
+    }
+    
     private static void assertSameObject(Object expected, Object actual) {
         int expectedId = System.identityHashCode(expected);
         int actualId = System.identityHashCode(actual);

@@ -14,7 +14,12 @@
 * The KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
 ## Release Notes
-### Latest Release (v1.5.2)
+### Latest Release (v1.5.3)
+* Upgrades jackson-databind to version 2.9.10.7
+* Upgrades junit to version 4.13.1
+* Upgrades AWS Java SDK to version 1.11.1016
+
+### Release (v1.5.2)
 * Upgrades jackson-databind to version 2.9.10.5
 * Updates `StreamsWorkerFactory` to use `KinesisClientLibConfiguration` billing mode when constructing `KinesisClientLeaseManager`.
 
