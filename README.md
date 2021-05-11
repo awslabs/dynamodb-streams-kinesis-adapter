@@ -18,6 +18,7 @@
 * Upgrades jackson-databind to version 2.9.10.7
 * Upgrades junit to version 4.13.1
 * Upgrades AWS Java SDK to version 1.11.1016
+* Implements `MillisBehindLatest` metric that measures the age of the last processed record per stream-shard in milliseconds.
 
 ### Release (v1.5.2)
 * Upgrades jackson-databind to version 2.9.10.5
