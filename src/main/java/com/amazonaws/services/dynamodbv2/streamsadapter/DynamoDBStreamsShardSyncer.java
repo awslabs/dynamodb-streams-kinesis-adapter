@@ -234,7 +234,7 @@ public class DynamoDBStreamsShardSyncer implements ShardSyncer {
 
             String endingSequenceNumber = shard.getSequenceNumberRange().getEndingSequenceNumber();
             if (endingSequenceNumber == null) {
-                throw new KinesisClientLibIOException("Shard " + shardIdsOfClosedShards
+                throw new KinesisClientLibIOException("Shard " + shardId
                     + " is not closed. " + exceptionMessageSuffix);
             }
 

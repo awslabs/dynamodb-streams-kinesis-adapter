@@ -14,11 +14,16 @@
 * The KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
 ## Release Notes
-### Latest Release (v1.5.3)
+### Latest Release (v1.5.4)
+* Upgrades AWS Java SDK to version 1.12.130
+* Upgrades jackson-databind to version 2.12.6.1
+* Fixes logging in `DynamoDBStreamsShardSyncer` to log only the problematic shardId instead of logging all the shardIds
+
+
+### Release (v1.5.3)
 * Upgrades jackson-databind to version 2.9.10.7
 * Upgrades junit to version 4.13.1
 * Upgrades AWS Java SDK to version 1.11.1016
-* Implements `MillisBehindLatest` metric that measures the age of the last processed record per stream-shard in milliseconds.
 
 ### Release (v1.5.2)
 * Upgrades jackson-databind to version 2.9.10.5
