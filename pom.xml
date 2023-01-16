@@ -6,7 +6,7 @@
     <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
     <packaging>jar</packaging>
     <name>DynamoDB Streams Adapter for Java</name>
-    <version>1.5.4</version>
+    <version>1.6.0</version>
     <description>The DynamoDB Streams Adapter implements the AmazonKinesis interface so that your application can use KCL to consume and process data from a DynamoDB stream.</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
@@ -24,7 +24,7 @@
 
     <properties>
         <aws-java-sdk.version>1.12.130</aws-java-sdk.version>
-        <amazon-kinesis-client.version>1.13.3</amazon-kinesis-client.version>
+        <amazon-kinesis-client.version>1.14.9</amazon-kinesis-client.version>
         <powermock.version>1.6.2</powermock.version>
         <aws.dynamodblocal.version>[1.12,2.0)</aws.dynamodblocal.version>
         <maven.dependency.version>3.0.0</maven.dependency.version>
@@ -62,7 +62,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.12.6.1</version>
+            <version>2.12.7.1</version>
         </dependency>
 
         <dependency>

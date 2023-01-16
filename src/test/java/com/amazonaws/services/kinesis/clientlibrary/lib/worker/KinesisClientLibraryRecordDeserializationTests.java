@@ -19,6 +19,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.DynamoDBStreamsDataFetcher;
+import com.amazonaws.services.dynamodbv2.streamsadapter.DynamoDBStreamsShutdownTask;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -63,7 +65,7 @@ public class KinesisClientLibraryRecordDeserializationTests {
     private static final String SHARD_ITERATOR = "iterator-0000000000";
     private static final Shard SHARD = new Shard().withShardId(SHARD_ID).withSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber(SEQUENCE_NUMBER_0));
     private static final StreamDescription STREAM_DESCRIPTION =
-        new StreamDescription().withCreationRequestDateTime(new Date()).withKeySchema().withShards(SHARD).withStreamArn(STREAM_NAME).withStreamStatus(StreamStatus.ENABLED);
+            new StreamDescription().withCreationRequestDateTime(new Date()).withKeySchema().withShards(SHARD).withStreamArn(STREAM_NAME).withStreamStatus(StreamStatus.ENABLED);
     private static final StreamRecord STREAM_RECORD_0 = new StreamRecord().withSequenceNumber(SEQUENCE_NUMBER_0).withApproximateCreationDateTime(new Date());
     private static final com.amazonaws.services.dynamodbv2.model.Record RECORD_0 = new com.amazonaws.services.dynamodbv2.model.Record().withDynamodb(STREAM_RECORD_0);
     private static final List<com.amazonaws.services.dynamodbv2.model.Record> RECORDS = Arrays.asList(RECORD_0);
@@ -77,13 +79,13 @@ public class KinesisClientLibraryRecordDeserializationTests {
     /* Construct higher level Kinesis Client Library objects from the primitive mocks */
     private static final AmazonDynamoDBStreamsAdapterClient ADAPTER_CLIENT = new AmazonDynamoDBStreamsAdapterClient(DYNAMODB_STREAMS);
     private static final IKinesisProxy KINESIS_PROXY =
-        new KinesisProxyFactory(new StaticCredentialsProvider(new BasicAWSCredentials("NotAnAccessKey", "NotASecretKey")), ADAPTER_CLIENT).getProxy(STREAM_NAME);
+            new KinesisProxyFactory(new StaticCredentialsProvider(new BasicAWSCredentials("NotAnAccessKey", "NotASecretKey")), ADAPTER_CLIENT).getProxy(STREAM_NAME);
     private static final ShardInfo SHARD_INFO = new ShardInfo(SHARD_ID, "concurrencyToken", new ArrayList<String>(), null /*checkpoint*/);
     private static final ExtendedSequenceNumber EXTENDED_SEQUENCE_NUMBER = new ExtendedSequenceNumber(SEQUENCE_NUMBER_0);
-    private static final KinesisDataFetcher KINESIS_DATA_FETCHER = new KinesisDataFetcher(KINESIS_PROXY, SHARD_INFO);
+    private static final DynamoDBStreamsDataFetcher KINESIS_DATA_FETCHER = new DynamoDBStreamsDataFetcher(KINESIS_PROXY, SHARD_INFO);
     private static final StreamConfig STREAM_CONFIG =
-        new StreamConfig(KINESIS_PROXY, 1000/* RecordLimit */, 0l /* IdleTimeMillis */, false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */,
-            InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
+            new StreamConfig(KINESIS_PROXY, 1000/* RecordLimit */, 0l /* IdleTimeMillis */, false /* callProcessRecordsForEmptyList */, false /* validateSequenceNumberBeforeCheckpointing */,
+                    InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
     private static final int GET_RECORDS_ITEM_LIMIT = 1000;
     private static final ExtendedSequenceNumber NULL_EXTENDED_SEQUENCE_NUMBER = null;
 

@@ -14,7 +14,15 @@
 * The KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
 ## Release Notes
-### Latest Release (v1.5.4)
+
+### Latest Release (v1.6.0)
+* Upgrades Amazon Kinesis Client Library (KCL) to version 1.14.9. Customers can now use DynamoDB Streams Adapter with KCL version 1.14.9. However, DynamoDB Streams Adapter does not inherit performance optimizations like support for child shards, shard synchronization, deferred lease clean-up available in KCL.
+* Fixes the [bug](https://github.com/awslabs/dynamodb-streams-kinesis-adapter/issues/40) which was causing errors in DynamoDB Streams Adapter with KCL version 1.14.0.
+* With upgrade to KCL version 1.14.9, the default shard prioritization strategy has been changed to `NoOpShardPrioritization`. To retain the existing behavior, DynamoDB Streams customers should explicitly update the shard prioritization strategy to `ParentsFirstShardPrioritization` if there was no explicit override done in the application.
+* Upgrades jackson-databind to version 2.12.7.1
+* This release uses Apache 2.0 license.
+
+### Release (v1.5.4)
 * Upgrades AWS Java SDK to version 1.12.130
 * Upgrades jackson-databind to version 2.12.6.1
 * Fixes logging in `DynamoDBStreamsShardSyncer` to log only the problematic shardId instead of logging all the shardIds

@@ -880,4 +880,3 @@ public class DynamoDBStreamsShardSyncer implements ShardSyncer {
     }
 
 }
-

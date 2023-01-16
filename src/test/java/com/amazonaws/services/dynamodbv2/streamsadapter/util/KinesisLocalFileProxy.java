@@ -27,6 +27,7 @@ import java.util.Set;
 import com.amazonaws.services.kinesis.clientlibrary.proxies.IKinesisProxy;
 import com.amazonaws.services.kinesis.clientlibrary.proxies.ShardClosureVerificationResponse;
 
+import com.amazonaws.services.kinesis.clientlibrary.utils.RequestUtil;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -40,6 +41,7 @@ import com.amazonaws.services.kinesis.model.ResourceNotFoundException;
 import com.amazonaws.services.kinesis.model.SequenceNumberRange;
 import com.amazonaws.services.kinesis.model.Shard;
 import com.amazonaws.services.kinesis.model.ShardIteratorType;
+import com.amazonaws.services.kinesis.model.ShardFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -116,7 +118,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
 
     private void populateDataRecordsFromFile(String file) throws IOException {
         try (BufferedReader in = new BufferedReader(
-            new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             Charset charset = Charset.forName("UTF-8");
             CharsetEncoder encoder = charset.newEncoder();
             String str;
@@ -147,7 +149,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
                 String[] strArr = str.split(",");
                 if (strArr.length != NUM_FIELDS_IN_FILE) {
                     throw new InvalidArgumentException("Unexpected input in file."
-                        + "Expected format (shardId, sequenceNumber, partitionKey, dataRecord, timestamp)");
+                            + "Expected format (shardId, sequenceNumber, partitionKey, dataRecord, timestamp)");
                 }
                 String shardId = strArr[LocalFileFields.SHARD_ID.getPosition()];
                 Record record = new Record();
@@ -156,7 +158,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
                 ByteBuffer byteBuffer = encoder.encode(CharBuffer.wrap(strArr[LocalFileFields.DATA.getPosition()]));
                 record.setData(byteBuffer);
                 Date timestamp =
-                    new Date(Long.parseLong(strArr[LocalFileFields.APPROXIMATE_ARRIVAL_TIMESTAMP.getPosition()]));
+                        new Date(Long.parseLong(strArr[LocalFileFields.APPROXIMATE_ARRIVAL_TIMESTAMP.getPosition()]));
                 record.setApproximateArrivalTimestamp(timestamp);
                 List<Record> shardRecords = shardedDataRecords.get(shardId);
                 if (shardRecords == null) {
@@ -227,7 +229,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
      */
     @Override
     public String getIterator(String shardId, String iteratorEnum, String sequenceNumber)
-        throws ResourceNotFoundException, InvalidArgumentException {
+            throws ResourceNotFoundException, InvalidArgumentException {
         /*
          * If we don't have records in this shard, any iterator will return the empty list. Using a
          * sequence number of 1 on an empty shard will give this behavior.
@@ -265,7 +267,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
      */
     @Override
     public String getIterator(String shardId, String iteratorEnum)
-        throws ResourceNotFoundException, InvalidArgumentException {
+            throws ResourceNotFoundException, InvalidArgumentException {
         /*
          * If we don't have records in this shard, any iterator will return the empty list. Using a
          * sequence number of 1 on an empty shard will give this behavior.
@@ -299,7 +301,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
      */
     @Override
     public String getIterator(String shardId, Date timestamp)
-        throws ResourceNotFoundException, InvalidArgumentException {
+            throws ResourceNotFoundException, InvalidArgumentException {
         /*
          * If we don't have records in this shard, any iterator will return the empty list. Using a
          * sequence number of 1 on an empty shard will give this behavior.
@@ -338,7 +340,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
      */
     @Override
     public GetRecordsResult get(String serializedKinesisIterator, int maxRecords)
-        throws ResourceNotFoundException, InvalidArgumentException, ExpiredIteratorException {
+            throws ResourceNotFoundException, InvalidArgumentException, ExpiredIteratorException {
         IteratorInfo iterator = deserializeIterator(serializedKinesisIterator);
 
         BigInteger startingPosition = new BigInteger(iterator.sequenceNumber);
@@ -379,7 +381,7 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
              * Use the sequence number of the last record returned + 1 to compute the next iterator.
              */
             response.setNextShardIterator(serializeIterator(iterator.shardId, lastRecordsSeqNo.add(BigInteger.ONE)
-                .toString()));
+                    .toString()));
             LOG.debug("Returning a non null iterator for shard " + iterator.shardId);
         } else {
             LOG.info("Returning null iterator for shard " + iterator.shardId);
@@ -393,9 +395,9 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
      */
     @Override
     public PutRecordResult put(String exclusiveMinimumSequenceNumber,
-        String explicitHashKey,
-        String partitionKey,
-        ByteBuffer data) throws ResourceNotFoundException, InvalidArgumentException {
+                               String explicitHashKey,
+                               String partitionKey,
+                               ByteBuffer data) throws ResourceNotFoundException, InvalidArgumentException {
         PutRecordResult output = new PutRecordResult();
 
         BigInteger startingPosition = BigInteger.ONE;
@@ -416,6 +418,12 @@ public class KinesisLocalFileProxy implements IKinesisProxy {
         List<Shard> shards = new LinkedList<Shard>();
         shards.addAll(shardList);
         return shards;
+    }
+
+    @Override
+    public synchronized List<Shard> getShardListWithFilter(ShardFilter shardFilter){
+
+        throw new UnsupportedOperationException("DynamoDB Streams does not support Shard List Filtering");
     }
 
     @Override

@@ -13,18 +13,26 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.streamsadapter.leases.StreamsLeaseTaker;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory;
+
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.LeaderDecider;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShardSyncStrategyType;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShardSyncTask;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShardSyncer;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker;
 import com.amazonaws.services.kinesis.leases.impl.KinesisClientLeaseManager;
 import com.amazonaws.services.kinesis.metrics.interfaces.IMetricsFactory;
 import com.amazonaws.util.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import static com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker.getMetricsFactory;
 
 /**
  * The StreamsWorkerFactory uses the Kinesis Client Library's Worker
@@ -51,19 +59,53 @@ public class StreamsWorkerFactory {
             config.getDynamoDBEndpoint(),
             config.getRegionName());
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+
+        AmazonCloudWatch cloudWatchClient = createClient(AmazonCloudWatchClientBuilder.standard(),
+                config.getCloudWatchCredentialsProvider(),
+                config.getCloudWatchClientConfiguration(),
+                null,
+                config.getRegionName());
+        IMetricsFactory metricsFactory = getMetricsFactory(cloudWatchClient, config);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
             .config(config)
             .kinesisClient(streamsClient)
             .execService(execService)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 
@@ -76,8 +118,33 @@ public class StreamsWorkerFactory {
      * @return                       An instance of KCL worker injected with DynamoDB Streams specific dependencies.
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
-        AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, AmazonCloudWatch cloudWatchClient) {
+                                                     AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, AmazonCloudWatch cloudWatchClient) {
+
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+        IMetricsFactory metricsFactory = getMetricsFactory(cloudWatchClient, config);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
@@ -85,13 +152,16 @@ public class StreamsWorkerFactory {
             .kinesisClient(streamsClient)
             .dynamoDBClient(dynamoDBClient)
             .cloudWatchClient(cloudWatchClient)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 
@@ -106,8 +176,34 @@ public class StreamsWorkerFactory {
      * @return                       An instance of KCL worker injected with DynamoDB Streams specific dependencies.
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
-        AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, AmazonCloudWatch cloudWatchClient, ExecutorService execService) {
+                                                     AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, AmazonCloudWatch cloudWatchClient, ExecutorService execService) {
+
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+        IMetricsFactory metricsFactory = getMetricsFactory(cloudWatchClient, config);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
@@ -115,14 +211,17 @@ public class StreamsWorkerFactory {
             .kinesisClient(streamsClient)
             .dynamoDBClient(dynamoDBClient)
             .cloudWatchClient(cloudWatchClient)
+            .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
             .execService(execService)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 
@@ -137,8 +236,33 @@ public class StreamsWorkerFactory {
      * @return                       An instance of KCL worker injected with DynamoDB Streams specific dependencies.
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
-        AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, IMetricsFactory metricsFactory, ExecutorService execService) {
+                                                     AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDB dynamoDBClient, IMetricsFactory metricsFactory, ExecutorService execService) {
+
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
@@ -146,14 +270,16 @@ public class StreamsWorkerFactory {
             .kinesisClient(streamsClient)
             .dynamoDBClient(dynamoDBClient)
             .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
             .execService(execService)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 
@@ -166,8 +292,34 @@ public class StreamsWorkerFactory {
      * @return                       An instance of KCL worker injected with DynamoDB Streams specific dependencies.
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
-        AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, AmazonCloudWatchClient cloudWatchClient) {
+                                                     AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, AmazonCloudWatchClient cloudWatchClient) {
+
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+        IMetricsFactory metricsFactory = getMetricsFactory(cloudWatchClient, config);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
@@ -175,13 +327,16 @@ public class StreamsWorkerFactory {
             .kinesisClient(streamsClient)
             .dynamoDBClient(dynamoDBClient)
             .cloudWatchClient(cloudWatchClient)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 
@@ -196,8 +351,34 @@ public class StreamsWorkerFactory {
      * @return                       An instance of KCL worker injected with DynamoDB Streams specific dependencies.
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
-        AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, AmazonCloudWatchClient cloudWatchClient, ExecutorService execService) {
+                                                     AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, AmazonCloudWatchClient cloudWatchClient, ExecutorService execService) {
+
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+        IMetricsFactory metricsFactory = getMetricsFactory(cloudWatchClient, config);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
@@ -205,14 +386,17 @@ public class StreamsWorkerFactory {
             .kinesisClient(streamsClient)
             .dynamoDBClient(dynamoDBClient)
             .cloudWatchClient(cloudWatchClient)
+            .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
             .execService(execService)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 
@@ -227,8 +411,33 @@ public class StreamsWorkerFactory {
      * @return                       An instance of KCL worker injected with DynamoDB Streams specific dependencies.
      */
     public static Worker createDynamoDbStreamsWorker(IRecordProcessorFactory recordProcessorFactory, KinesisClientLibConfiguration config,
-        AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, IMetricsFactory metricsFactory, ExecutorService execService) {
+                                                     AmazonDynamoDBStreamsAdapterClient streamsClient, AmazonDynamoDBClient dynamoDBClient, IMetricsFactory metricsFactory, ExecutorService execService) {
+
         KinesisClientLeaseManager kinesisClientLeaseManager = new KinesisClientLeaseManager(config.getTableName(), dynamoDBClient, config.getBillingMode());
+
+        boolean isAuditorMode = config.getShardSyncStrategyType() != ShardSyncStrategyType.PERIODIC;
+
+        DynamoDBStreamsProxy dynamoDBStreamsProxy = getDynamoDBStreamsProxy(config, streamsClient);
+        ShardSyncer shardSyncer= new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator());
+        LeaderDecider leaderDecider = new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager);
+
+        DynamoDBStreamsPeriodicShardSyncManager dynamoDBStreamsPeriodicShardSyncManager = new DynamoDBStreamsPeriodicShardSyncManager(config.getWorkerIdentifier(),
+                leaderDecider,
+                new ShardSyncTask(dynamoDBStreamsProxy,
+                        kinesisClientLeaseManager,
+                        config.getInitialPositionInStreamExtended(),
+                        config.shouldCleanupLeasesUponShardCompletion(),
+                        config.shouldIgnoreUnexpectedChildShards(),
+                        0 /* shardSyncTaskIdleTimeMillis*/,
+                        shardSyncer,
+                        null /*latestShards*/),
+                metricsFactory,
+                kinesisClientLeaseManager,
+                dynamoDBStreamsProxy,
+                isAuditorMode,
+                config.getLeasesRecoveryAuditorExecutionFrequencyMillis(),
+                config.getLeasesRecoveryAuditorInconsistencyConfidenceThreshold());
+
         return new Worker
             .Builder()
             .recordProcessorFactory(recordProcessorFactory)
@@ -236,14 +445,16 @@ public class StreamsWorkerFactory {
             .kinesisClient(streamsClient)
             .dynamoDBClient(dynamoDBClient)
             .metricsFactory(metricsFactory)
+            .periodicShardSyncManager(dynamoDBStreamsPeriodicShardSyncManager)
+            .shardConsumerFactory(new DynamoDBStreamsShardConsumerFactory())
             .execService(execService)
-            .kinesisProxy(getDynamoDBStreamsProxy(config, streamsClient))
-            .shardSyncer(new DynamoDBStreamsShardSyncer(new StreamsLeaseCleanupValidator()))
+            .kinesisProxy(dynamoDBStreamsProxy)
+            .shardSyncer(shardSyncer)
             .shardPrioritization(config.getShardPrioritizationStrategy())
             .leaseManager(kinesisClientLeaseManager)
             .leaseTaker(new StreamsLeaseTaker<>(kinesisClientLeaseManager, config.getWorkerIdentifier(), config.getFailoverTimeMillis())
                     .maxLeasesForWorker(config.getMaxLeasesForWorker()))
-            .leaderDecider(new StreamsDeterministicShuffleShardSyncLeaderDecider(config, kinesisClientLeaseManager))
+            .leaderDecider(leaderDecider)
             .build();
     }
 

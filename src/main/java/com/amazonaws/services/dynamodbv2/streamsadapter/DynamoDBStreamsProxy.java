@@ -28,6 +28,7 @@ import com.amazonaws.services.kinesis.model.SequenceNumberRange;
 import com.amazonaws.services.kinesis.model.Shard;
 import com.amazonaws.services.kinesis.model.ShardIteratorType;
 import com.amazonaws.services.kinesis.model.StreamStatus;
+import com.amazonaws.services.kinesis.model.ShardFilter;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -257,6 +258,12 @@ public class DynamoDBStreamsProxy implements IKinesisProxyExtended {
         this.listOfShardsSinceLastGet.set(shardGraph.getShards());
         this.shardGraph = new ShardGraph();
         return listOfShardsSinceLastGet.get();
+    }
+
+    @Override
+    public synchronized List<Shard> getShardListWithFilter(ShardFilter shardFilter){
+
+        throw new UnsupportedOperationException("DynamoDB Streams does not support Shard List Filtering");
     }
 
     @Override

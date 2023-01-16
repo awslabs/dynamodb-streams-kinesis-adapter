@@ -106,15 +106,15 @@ public class DynamoDBStreamsProxyTest {
         MockitoAnnotations.initMocks(this);
         Mockito.doNothing().when(mockSleeper).sleep(anyLong());
         dynamoDBStreamsProxy = new DynamoDBStreamsProxy
-            .Builder(STREAM_NAME, mockAwsCredentialsProvider, mockKinesisClient)
-            .withSleeper(mockSleeper)
-            .withMaxRetriesToResolveInconsistencies(MAX_RETRIES_TO_RESOLVE_INCONSISTENCIES)
-            .withMaxDescribeStreamRetryAttempts(DESCRIBE_STREAM_RETRY_COUNT_WHEN_THROTTLED)
-            .withInconsistencyResolutionRetryBackoffBaseInMillis(INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_BASE_MILLIS)
-            .withInconsistencyResolutionRetryBackoffMultiplierInMillis(INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_MULTIPLIER_MILLIS)
-            .withInconsistencyResolutionRetryBackoffJitterEnabled(INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_JITTER_ENABLED)
-            .withRandomNumberGeneratorForJitter(mockRandom)
-            .build();
+                .Builder(STREAM_NAME, mockAwsCredentialsProvider, mockKinesisClient)
+                .withSleeper(mockSleeper)
+                .withMaxRetriesToResolveInconsistencies(MAX_RETRIES_TO_RESOLVE_INCONSISTENCIES)
+                .withMaxDescribeStreamRetryAttempts(DESCRIBE_STREAM_RETRY_COUNT_WHEN_THROTTLED)
+                .withInconsistencyResolutionRetryBackoffBaseInMillis(INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_BASE_MILLIS)
+                .withInconsistencyResolutionRetryBackoffMultiplierInMillis(INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_MULTIPLIER_MILLIS)
+                .withInconsistencyResolutionRetryBackoffJitterEnabled(INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_JITTER_ENABLED)
+                .withRandomNumberGeneratorForJitter(mockRandom)
+                .build();
         when(mockRandom.nextDouble()).thenAnswer(new Answer() {
             private int count = 0;
             @Override public Object answer(InvocationOnMock invocation) {
@@ -149,7 +149,7 @@ public class DynamoDBStreamsProxyTest {
         leafNodeOpenParentShardIds.add(String.valueOf(DEFAULT_FIRST_SHARD_PARENT_ID + NUM_SHARDS - 1));
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(describeStreamResult);
+                .thenReturn(describeStreamResult);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final List<Shard> result = dynamoDBStreamsProxy.getShardList();
         verify(mockKinesisClient, times(1)).describeStream(argumentCaptor.capture());
@@ -163,8 +163,8 @@ public class DynamoDBStreamsProxyTest {
         final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, HAS_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(describeStreamResult)
-            .thenThrow(new LimitExceededException("Test"));
+                .thenReturn(describeStreamResult)
+                .thenThrow(new LimitExceededException("Test"));
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         try {
             dynamoDBStreamsProxy.getShardList();
@@ -181,8 +181,8 @@ public class DynamoDBStreamsProxyTest {
         final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_OPEN);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, HAS_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(describeStreamResult)
-            .thenThrow(new ResourceNotFoundException("Test"));
+                .thenReturn(describeStreamResult)
+                .thenThrow(new ResourceNotFoundException("Test"));
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         try {
             dynamoDBStreamsProxy.getShardList();
@@ -199,7 +199,7 @@ public class DynamoDBStreamsProxyTest {
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         describeStreamResult.setStreamDescription(new StreamDescription().withStreamStatus("DISABLED"));
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(describeStreamResult);
+                .thenReturn(describeStreamResult);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         List<Shard> result = dynamoDBStreamsProxy.getShardList();
         verify(mockKinesisClient, times(1)).describeStream(argumentCaptor.capture());
@@ -209,16 +209,16 @@ public class DynamoDBStreamsProxyTest {
     @Test
     public void testDDBProxyReturnsNullWhenStreamIsDisabledWhenFixingInconsistencies() {
         final String[] expectedExclusiveShardIdSequence = new String[] {
-            null,
-            Integer.toString(7),
+                null,
+                Integer.toString(7),
         };
         final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID, NUM_SHARDS, LEAF_NODE_CLOSED);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(shards, NO_MORE_SHARDS);
         final DescribeStreamResult disabledDescribeStreamResult = new DescribeStreamResult();
         disabledDescribeStreamResult.setStreamDescription(new StreamDescription().withStreamStatus("DISABLED"));
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(describeStreamResult)
-            .thenReturn(disabledDescribeStreamResult);
+                .thenReturn(describeStreamResult)
+                .thenReturn(disabledDescribeStreamResult);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final ArgumentCaptor<Long> sleeperArgumentCaptor = ArgumentCaptor.forClass(Long.class);
         final List<Shard> result = dynamoDBStreamsProxy.getShardList();
@@ -248,10 +248,10 @@ public class DynamoDBStreamsProxyTest {
         String shardId3 = "shardId-00000001517312572197-a2ebf9ee";
         // expected to fetch starting from the earliest/first shard id in the set.
         final String[] expectedExclusiveShardIdSequence = new String[] {
-            null,
-            "shardId-00000001517312572197-a2ebf9ee",
-            "shardId-00000001517312607815-45ecd9d9",
-            "shardId-00000001517312623906-fc3dbd40",
+                null,
+                "shardId-00000001517312572197-a2ebf9ee",
+                "shardId-00000001517312607815-45ecd9d9",
+                "shardId-00000001517312623906-fc3dbd40",
         };
         final List<Shard> allShards = new LinkedList<>();
         final List<Shard> page1 = getShardListForOneShardLineageWithCustomShardIDForLeafNode(10, NUM_SHARDS, LEAF_NODE_CLOSED, shardId1);
@@ -280,10 +280,10 @@ public class DynamoDBStreamsProxyTest {
         // capping the total DescribeStream calls made at 4.
         final DescribeStreamResult os3_page = getDescribeStreamResult(openShard3List, HAS_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(ds_result)
-            .thenReturn(os1_page)
-            .thenReturn(os2_page)
-            .thenReturn(os3_page);
+                .thenReturn(ds_result)
+                .thenReturn(os1_page)
+                .thenReturn(os2_page)
+                .thenReturn(os3_page);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final ArgumentCaptor<Long> sleeperArgumentCaptor = ArgumentCaptor.forClass(Long.class);
         final List<Shard> result = dynamoDBStreamsProxy.getShardList();
@@ -308,11 +308,11 @@ public class DynamoDBStreamsProxyTest {
     @Test
     public void testArbitraryScenario() {
         final String[] expectedExclusiveShardIdSequence = new String[] {
-            null,
-            Integer.toString(17),
-            Integer.toString(27),
-            Integer.toString(37),
-            Integer.toString(37),
+                null,
+                Integer.toString(17),
+                Integer.toString(27),
+                Integer.toString(37),
+                Integer.toString(37),
         };
         final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
         final List<Shard> allShards = new LinkedList<>();
@@ -338,11 +338,11 @@ public class DynamoDBStreamsProxyTest {
         allShards.addAll(page5);
         final DescribeStreamResult ds_page5 = getDescribeStreamResult(page5, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(ds_page1)
-            .thenReturn(ds_page2)
-            .thenReturn(ds_page3)
-            .thenReturn(ds_page4)
-            .thenReturn(ds_page5);
+                .thenReturn(ds_page1)
+                .thenReturn(ds_page2)
+                .thenReturn(ds_page3)
+                .thenReturn(ds_page4)
+                .thenReturn(ds_page5);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final ArgumentCaptor<Long> sleeperArgumentCaptor = ArgumentCaptor.forClass(Long.class);
         final List<Shard> result = dynamoDBStreamsProxy.getShardList();
@@ -367,11 +367,11 @@ public class DynamoDBStreamsProxyTest {
     @Test
     public void testScenarioWhereCorrectChildShardAppearsAfterLag() {
         final String[] expectedExclusiveShardIdSequence = new String[] {
-            null,
-            Integer.toString(17),
-            Integer.toString(27),
-            Integer.toString(37),
-            Integer.toString(37),
+                null,
+                Integer.toString(17),
+                Integer.toString(27),
+                Integer.toString(37),
+                Integer.toString(37),
         };
         final Set<String> leafNodeOpenParentShardIds = new HashSet<>();
         final List<Shard> allShards = new LinkedList<>();
@@ -398,11 +398,11 @@ public class DynamoDBStreamsProxyTest {
         allShards.add(page5.get(0));
         final DescribeStreamResult ds_page5 = getDescribeStreamResult(page5, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(ds_page1)
-            .thenReturn(ds_page2)
-            .thenReturn(ds_page3)
-            .thenReturn(ds_page4)
-            .thenReturn(ds_page5);
+                .thenReturn(ds_page1)
+                .thenReturn(ds_page2)
+                .thenReturn(ds_page3)
+                .thenReturn(ds_page4)
+                .thenReturn(ds_page5);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final ArgumentCaptor<Long> sleeperArgumentCaptor = ArgumentCaptor.forClass(Long.class);
         final List<Shard> result = dynamoDBStreamsProxy.getShardList();
@@ -428,15 +428,15 @@ public class DynamoDBStreamsProxyTest {
     @Test
     public void testProxyBehaviorWhenDescribeStreamIsThrottledDuringAttemptsToFixTree() {
         final String[] expectedExclusiveShardIdSequence = new String[] {
-            null,
-            Integer.toString(17),
-            Integer.toString(27),
-            Integer.toString(37),
-            Integer.toString(37),
-            Integer.toString(37),
-            Integer.toString(37),
-            Integer.toString(46),
-            Integer.toString(37)
+                null,
+                Integer.toString(17),
+                Integer.toString(27),
+                Integer.toString(37),
+                Integer.toString(37),
+                Integer.toString(37),
+                Integer.toString(37),
+                Integer.toString(46),
+                Integer.toString(37)
         };
         // We create a list of nodes which we expect will be fixed by setting a fixed non-null value for the
         // end sequence number.
@@ -472,15 +472,15 @@ public class DynamoDBStreamsProxyTest {
         final DescribeStreamResult ds_page6 = getDescribeStreamResult(page6, NO_MORE_SHARDS);
         // Create a response sequence with DESCRIBE_STREAM_RETRY_COUNT_WHEN_THROTTLED number of LimitExceededExceptions
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(ds_page1)
-            .thenReturn(ds_page2)
-            .thenReturn(ds_page3)
-            .thenReturn(ds_page4)
-            .thenThrow(new LimitExceededException("Retry-1"))
-            .thenThrow(new LimitExceededException("Retry-2"))
-            .thenThrow(new LimitExceededException("Retry-3"))
-            .thenReturn(ds_page5)
-            .thenReturn(ds_page6);
+                .thenReturn(ds_page1)
+                .thenReturn(ds_page2)
+                .thenReturn(ds_page3)
+                .thenReturn(ds_page4)
+                .thenThrow(new LimitExceededException("Retry-1"))
+                .thenThrow(new LimitExceededException("Retry-2"))
+                .thenThrow(new LimitExceededException("Retry-3"))
+                .thenReturn(ds_page5)
+                .thenReturn(ds_page6);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final ArgumentCaptor<Long> sleeperArgumentCaptor = ArgumentCaptor.forClass(Long.class);
         boolean limitExceededException = false;
@@ -498,7 +498,7 @@ public class DynamoDBStreamsProxyTest {
         // + DESCRIBE_STREAM_RETRY_COUNT_WHEN_THROTTLED + 1 (for the DynamoDBStreamsProxy#buildShardGraphSnapshot
         // DescribeStream call after throttling).
         final int describeStreamNumberOfInvocations =
-            MAX_RETRIES_TO_RESOLVE_INCONSISTENCIES + DESCRIBE_STREAM_RETRY_COUNT_WHEN_THROTTLED + 1;
+                MAX_RETRIES_TO_RESOLVE_INCONSISTENCIES + DESCRIBE_STREAM_RETRY_COUNT_WHEN_THROTTLED + 1;
         verify(mockKinesisClient, times(describeStreamNumberOfInvocations)).describeStream(argumentCaptor.capture());
         verify(mockSleeper, times(expectedNumberOfSleeperInvocations)).sleep(sleeperArgumentCaptor.capture());
         verifyExclusiveStartShardIdSequence(argumentCaptor.getAllValues(), Arrays.asList(expectedExclusiveShardIdSequence));
@@ -516,7 +516,7 @@ public class DynamoDBStreamsProxyTest {
         // setting leaf node for all but one lineage open.
         for (int i = 1; i < numLineages; i++) {
             final List<Shard> shards = getShardListForOneShardLineage(DEFAULT_FIRST_SHARD_PARENT_ID + i*10,
-                                                                      (int)numShardsInLineage, LEAF_NODE_OPEN);
+                    (int)numShardsInLineage, LEAF_NODE_OPEN);
             leafNodeOpenParentShardIds.add(String.valueOf(DEFAULT_FIRST_SHARD_PARENT_ID + i*10 + (int)numShardsInLineage - 1));
             allShards.addAll(shards);
         }
@@ -528,7 +528,7 @@ public class DynamoDBStreamsProxyTest {
         Assert.assertEquals(expectedNumberOfShards, MAX_SHARD_COUNT_TO_TRIGGER_RETRIES  + 1);
         final DescribeStreamResult describeStreamResult = getDescribeStreamResult(allShards, NO_MORE_SHARDS);
         when(mockKinesisClient.describeStream(any(DescribeStreamRequest.class)))
-            .thenReturn(describeStreamResult);
+                .thenReturn(describeStreamResult);
         final ArgumentCaptor<DescribeStreamRequest> argumentCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
         final ArgumentCaptor<Long> sleeperArgumentCaptor = ArgumentCaptor.forClass(Long.class);
         final List<Shard> result = dynamoDBStreamsProxy.getShardList();
@@ -545,6 +545,12 @@ public class DynamoDBStreamsProxyTest {
     public void testVerifyShardClosureReportsShardAsClosed() {
         final String shardId = UUID.randomUUID().toString();
         Assert.assertTrue(dynamoDBStreamsProxy.verifyShardClosure(shardId).isShardClosed());
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public final void testGetShardListWithFilterException() throws UnsupportedOperationException{
+
+        dynamoDBStreamsProxy.getShardListWithFilter(null);
     }
 
     private void executeGetShardListTest(int numberOfInconsistentResults, boolean endWithConsistentGraph) {
@@ -729,7 +735,7 @@ public class DynamoDBStreamsProxyTest {
 
     private com.amazonaws.services.dynamodbv2.model.SequenceNumberRange getEndNullSequenceNumberRange() {
         final com.amazonaws.services.dynamodbv2.model.SequenceNumberRange range
-            = new com.amazonaws.services.dynamodbv2.model.SequenceNumberRange();
+                = new com.amazonaws.services.dynamodbv2.model.SequenceNumberRange();
         range.setStartingSequenceNumber(STARTING_SEQUENCE_NUMBER);
         range.setEndingSequenceNumber(NULL_SEQUENCE_NUMBER);
         return range;
@@ -748,6 +754,6 @@ public class DynamoDBStreamsProxyTest {
     private long getInconsistencyBackoffTimeInMillis(int retryAttempt) {
         double baseMultiplier = RANDOM_SEQUENCE[retryAttempt];
         return (long)(baseMultiplier * INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_BASE_MILLIS) +
-            (long)Math.pow(2.0, retryAttempt) * INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_MULTIPLIER_MILLIS;
+                (long)Math.pow(2.0, retryAttempt) * INCONSISTENCY_RESOLUTION_RETRY_BACKOFF_MULTIPLIER_MILLIS;
     }
 }
