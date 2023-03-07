@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -51,6 +53,21 @@ public class StreamsMultiLangDaemon {
 
         // Daemon
         final MultiLangDaemon daemon = new MultiLangDaemon(worker);
+
+        final long shutdownGraceMillis = config.getKinesisClientLibConfiguration().getShutdownGraceMillis();
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                LOG.info("Process terminanted, will initiate shutdown.");
+                try {
+                    Future<Void> fut = daemon.worker.requestShutdown();
+                    fut.get(shutdownGraceMillis, TimeUnit.MILLISECONDS);
+                    LOG.info("Process shutdown is complete.");
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                    LOG.error("Encountered an error during shutdown.", e);
+                }
+            }
+        });
 
         final Future<Integer> future = executorService.submit(daemon);
         try {
