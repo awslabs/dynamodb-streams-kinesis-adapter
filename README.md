@@ -15,7 +15,12 @@
 
 ## Release Notes
 
-### Latest Release (v1.6.0)
+### Latest Release (v1.6.1)
+* Upgrades AWS Java SDK to version 1.12.710.
+* Adds dependency on Lombok 1.18.32.
+* Falling back to Maven Central repository for DynamoDBLocal library.
+
+### Release (v1.6.0)
 * Upgrades Amazon Kinesis Client Library (KCL) to version 1.14.9. Customers can now use DynamoDB Streams Adapter with KCL version 1.14.9. However, DynamoDB Streams Adapter does not inherit performance optimizations like support for child shards, shard synchronization, deferred lease clean-up available in KCL.
 * Fixes the [bug](https://github.com/awslabs/dynamodb-streams-kinesis-adapter/issues/40) which was causing errors in DynamoDB Streams Adapter with KCL version 1.14.0.
 * With upgrade to KCL version 1.14.9, the default shard prioritization strategy has been changed to `NoOpShardPrioritization`. To retain the existing behavior, DynamoDB Streams customers should explicitly update the shard prioritization strategy to `ParentsFirstShardPrioritization` if there was no explicit override done in the application.
