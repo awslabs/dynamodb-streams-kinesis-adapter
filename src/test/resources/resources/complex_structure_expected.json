@@ -1,0 +1,259 @@
+{
+  "eventID": "anonymized-event-id",
+  "eventName": "MODIFY",
+  "eventVersion": "1.0",
+  "eventSource": "aws:service",
+  "awsRegion": "region-1",
+  "dynamodb": {
+    "ApproximateCreationDateTime": 1156377600,
+    "Keys": {
+      "id": {
+        "S": "anonymized-id"
+      }
+    },
+    "NewImage": {
+      "globalContext": {
+        "S": "CONTEXT"
+      },
+      "lastUpdatedBy": {
+        "S": "anonymized-updater"
+      },
+      "marketplaceIds": {
+        "L": [
+          {
+            "S": "anonymized-marketplace-id"
+          }
+        ]
+      },
+      "bidSettings": {
+        "M": {}
+      },
+      "bidSettingsEmptySS": {
+        "SS": []
+      },
+      "bidSettingsNonEmptySS": {
+        "SS": [
+          "bid-settings-1"
+        ]
+      },
+      "bidSettingsEmptyNS": {
+        "NS": []
+      },
+      "bidSettingsNonEmptyNS": {
+        "NS": [
+          "1", "2"
+        ]
+      },
+      "nullValue": {
+        "NULL": true
+      },
+      "nonNullValue": {
+        "NULL": false
+      },
+      "binaryValue": {
+        "B": "AQIDBAU="
+      },
+      "binarySetEmpty": {
+        "BS": []
+      },
+      "binarySetNonEmpty": {
+        "BS": [
+          "ChQe","KDI8"
+        ]
+      },
+      "adProduct": {
+        "S": "PRODUCT_TYPE"
+      },
+      "accountType": {
+        "L": [
+          {
+            "S": "account-type"
+          },
+          {
+            "NS": ["1", "2"]
+          }
+        ]
+      },
+      "lastUpdatedTimeMillis": {
+        "N": "1000000000002"
+      },
+      "internalTags": {
+        "L": [
+          {
+            "M": {
+              "name": {
+                "S": "tag-name"
+              },
+              "value": {
+                "S": "tag-value"
+              }
+            }
+          }
+        ]
+      },
+      "version": {
+        "M": {
+          "objectVersion": {
+            "N": "1"
+          }
+        }
+      },
+      "tags": {
+        "L": []
+      },
+      "accountId": {
+        "S": "anonymized-account-id"
+      },
+      "startDateTime": {
+        "N": "1000000000003"
+      },
+      "isTest": {
+        "BOOL": false
+      },
+      "audit": {
+        "M": {
+          "lastUpdatedByUserId": {
+            "S": "anonymized-user-id"
+          },
+          "createdTime": {
+            "N": "1000000000000"
+          },
+          "lastUpdatedTime": {
+            "N": "1000000000001"
+          },
+          "lastUpdatedSource": {
+            "S": "anonymized-source"
+          }
+        }
+      },
+      "isGlobal": {
+        "BOOL": false
+      },
+      "name": {
+        "S": "anonymized-name"
+      },
+      "targetingSetting": {
+        "S": "TARGETING"
+      },
+      "id": {
+        "S": "anonymized-id"
+      },
+      "state": {
+        "S": "STATE"
+      },
+      "budget": {
+        "M": {
+          "budgetCaps": {
+            "L": [
+              {
+                "M": {
+                  "recurrence": {
+                    "M": {
+                      "recurrenceType": {
+                        "S": "RECURRENCE_TYPE"
+                      }
+                    }
+                  },
+                  "monetaryBudget": {
+                    "M": {
+                      "amount": {
+                        "M": {
+                          "currencyCode": {
+                            "S": "CUR"
+                          },
+                          "value": {
+                            "N": "100"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "budgetPacing": {
+            "L": [
+              {
+                "M": {
+                  "pacingStrategy": {
+                    "S": "PACING_STRATEGY"
+                  }
+                }
+              }
+            ]
+          },
+          "type": {
+            "S": "BUDGET_TYPE"
+          }
+        }
+      },
+      "optimizations": {
+        "M": {
+          "isPremiumBidEnabled": {
+            "BOOL": false
+          },
+          "bidAdjustments": {
+            "L": [
+              {
+                "M": {
+                  "bidAdjustmentPercentage": {
+                    "N": "10"
+                  },
+                  "bidAdjustmentType": {
+                    "S": "ADJUSTMENT_TYPE_1"
+                  }
+                }
+              },
+              {
+                "M": {
+                  "bidAdjustmentPercentage": {
+                    "N": "20"
+                  },
+                  "bidAdjustmentType": {
+                    "S": "ADJUSTMENT_TYPE_2"
+                  }
+                }
+              },
+              {
+                "M": {
+                  "bidAdjustmentPercentage": {
+                    "N": "30"
+                  },
+                  "bidAdjustmentType": {
+                    "S": "ADJUSTMENT_TYPE_3"
+                  }
+                }
+              }
+            ]
+          },
+          "bidStrategy": {
+            "S": "BID_STRATEGY"
+          }
+        }
+      },
+      "status": {
+        "M": {
+          "deliveryReasons": {
+            "L": []
+          },
+          "deliveryStatus": {
+            "S": "STATUS"
+          }
+        }
+      }
+    },
+    "OldImage": {
+      "id": {
+        "S": "anonymized-id"
+      }
+    },
+    "SequenceNumber": "anonymized-sequence",
+    "SizeBytes": 1000,
+    "StreamViewType": "NEW_AND_OLD_IMAGES"
+  },
+  "userIdentity": {
+    "principalId": "anonymized-principal",
+    "type": "anonymized-type"
+  }
+}
