@@ -1,5 +1,5 @@
 ## DynamoDB Streams Kinesis Adapter for Java
-DynamoDB Streams Kinesis Adapter implements the Amazon Kinesis interface so that your application can use Amazon Kinesis Client Library \(KCL\) to consume and process data from a DynamoDB stream. You can get started in minutes using *Maven*_.
+DynamoDB Streams Kinesis Adapter implements the Amazon Kinesis interface so that your application can use Amazon Kinesis Client Library \(KCL\) to consume and process data from a DynamoDB stream. You can get started in minutes using *Maven*.
 
 • [DynamoDB Streams Developer Guide][1]
 

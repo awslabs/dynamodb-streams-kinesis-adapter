@@ -95,7 +95,8 @@ public class RecordObjectMapperTest {
                 
         // Read expected JSON from file
         String expectedJSON = new String(java.nio.file.Files.readAllBytes(
-            java.nio.file.Paths.get("tst/resources/complex_structure_expected.json")));
+            java.nio.file.Paths.get(
+                    "src/test/java/com/amazonaws/services/dynamodbv2/streamsadapter/serialization/complex_structure_expected.json")));
 
         // Remove whitespace for comparison (since the file has formatting)
         ObjectMapper plainMapper = new ObjectMapper();
