@@ -41,6 +41,9 @@ Add the following to your Maven pom file:
 </dependency>
 ```
 
+## Migration from v1.x to v2.x
+Follow the migration guide provided in [Migrating from KCL 1.x to KCL 3.x](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/streams-migrating-kcl.html)
+
 ## Building From Source
 Once you check out the code from GitHub, you can build it using Maven: mvn clean install
 
