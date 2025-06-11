@@ -6,7 +6,7 @@
     <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
     <packaging>jar</packaging>
     <name>DynamoDB Streams Adapter for Java</name>
-    <version>1.6.0</version>
+    <version>1.6.1</version>
     <description>The DynamoDB Streams Adapter implements the AmazonKinesis interface so that your application can use KCL to consume and process data from a DynamoDB stream.</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
@@ -23,7 +23,7 @@
     </licenses>
 
     <properties>
-        <aws-java-sdk.version>1.12.130</aws-java-sdk.version>
+        <aws-java-sdk.version>1.12.710</aws-java-sdk.version>
         <amazon-kinesis-client.version>1.14.9</amazon-kinesis-client.version>
         <powermock.version>1.6.2</powermock.version>
         <aws.dynamodblocal.version>[1.12,2.0)</aws.dynamodblocal.version>
@@ -110,6 +110,13 @@
             <artifactId>DynamoDBLocal</artifactId>
             <version>${aws.dynamodblocal.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.32</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -223,17 +230,6 @@
             </plugin>
         </plugins>
     </build>
-
-    <repositories>
-        <repository>
-            <id>dynamodblocal</id>
-            <name>AWS DynamoDB Local Release Repository</name>
-            <url>https://s3-us-west-2.amazonaws.com/dynamodb-local/release</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 
     <dependencyManagement>
         <dependencies>
