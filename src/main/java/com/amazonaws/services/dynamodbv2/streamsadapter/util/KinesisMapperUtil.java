@@ -17,6 +17,7 @@ package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 import com.amazonaws.services.dynamodbv2.streamsadapter.serialization.RecordObjectMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.model.Stream;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
 import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
@@ -29,6 +30,8 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -51,6 +54,7 @@ public final class KinesisMapperUtil {
     private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
     private static final String SHARD_ID_SEPARATOR = "-";
+    private static Set<Region> awsRegions = new HashSet<>(Region.regions());
 
     /**
      * All the shard-leases should stay retained for at least 6 hours in the lease table.
@@ -193,8 +197,15 @@ public final class KinesisMapperUtil {
         String accountId = parts[1];
         String tableName = parts[2];
         String streamLabel = parts[3].replace(COLON_REPLACEMENT, ":");
-        String dynamoDBStreamArn = String.format("arn:aws:dynamodb:%s:%s:table/%s/stream/%s", region, accountId,
-                tableName, streamLabel);
+        Region awsRegion = Region.of(region);
+
+        if (!awsRegions.contains(awsRegion)) {
+            throw new IllegalArgumentException("Invalid DynamoDB stream ARN format: " + streamNameToUse);
+        }
+
+        String arnPartition = awsRegion.metadata().partition().id();
+        String dynamoDBStreamArn = String.format("arn:%s:dynamodb:%s:%s:table/%s/stream/%s",
+                arnPartition, region, accountId, tableName, streamLabel);
         if (!isValidDynamoDBStreamArn(dynamoDBStreamArn)) {
             throw new IllegalArgumentException("Invalid DynamoDB stream ARN: " + dynamoDBStreamArn);
         }

@@ -30,6 +30,7 @@ import software.amazon.kinesis.exceptions.internal.KinesisClientLibIOException;
 import software.amazon.kinesis.leases.Lease;
 import software.amazon.kinesis.leases.LeaseRefresher;
 import software.amazon.kinesis.leases.MultiStreamLease;
+import software.amazon.kinesis.leases.exceptions.DependencyException;
 import software.amazon.kinesis.metrics.MetricsScope;
 import software.amazon.kinesis.retrieval.kpl.ExtendedSequenceNumber;
 
@@ -58,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -85,16 +87,18 @@ public class DynamoDBStreamsShardSyncerTest {
     private static final StreamIdentifier MULTI_STREAM_IDENTIFIER = StreamIdentifier.multiStreamInstance(MULTI_STREAM_NAME);
 
     @BeforeEach
-    void setup() {
+    void setup() throws DependencyException {
         MockitoAnnotations.openMocks(this);
         shardSyncer = new DynamoDBStreamsShardSyncer(false, SINGLE_STREAM_NAME, true);
+        when(leaseRefresher.getLeaseTableIdentifier()).thenReturn("CONSUMER_ID");
         when(shardDetector.streamIdentifier()).thenReturn(SINGLE_STREAM_IDENTIFIER);
     }
 
     @Test
     void testCheckAndCreateLeaseForNewShardsWithEmptyShardList() throws Exception {
         // Setup
-        when(shardDetector.listShards()).thenReturn(Collections.emptyList());
+        when(shardDetector.listShards(anyString())).thenReturn(Collections.emptyList());
+
         // Execute
         boolean result = shardSyncer.checkAndCreateLeaseForNewShards(
                 shardDetector,
@@ -118,7 +122,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = Collections.singletonList(shard);
 
         // Mock both listShards and describeStream
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
         when(leaseRefresher.listLeases()).thenReturn(Collections.emptyList());
 
         // Execute
@@ -171,7 +175,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = Collections.singletonList(shard);
 
         // Mock ShardDetector
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
 
         // Mock empty existing leases
@@ -227,12 +231,12 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup first stream detector
         DynamoDBStreamsShardDetector detector1 = mock(DynamoDBStreamsShardDetector.class);
-        when(detector1.listShards()).thenReturn(Collections.singletonList(shard1));
+        when(detector1.listShards(anyString())).thenReturn(Collections.singletonList(shard1));
         when(detector1.streamIdentifier()).thenReturn(stream1Identifier);
 
         // Setup second stream detector
         DynamoDBStreamsShardDetector detector2 = mock(DynamoDBStreamsShardDetector.class);
-        when(detector2.listShards()).thenReturn(Collections.singletonList(shard2));
+        when(detector2.listShards(anyString())).thenReturn(Collections.singletonList(shard2));
         when(detector2.streamIdentifier()).thenReturn(stream2Identifier);
 
         // Mock lease refresher for multiple streams
@@ -291,7 +295,7 @@ public class DynamoDBStreamsShardSyncerTest {
         Shard independentShard = createTestShard(independentShardId, null, null, "0", null);
 
         List<Shard> shards = Arrays.asList(rootShard, childShard, independentShard);
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
         when(leaseRefresher.listLeases()).thenReturn(Collections.emptyList());
 
         // Test with LATEST position
@@ -382,8 +386,8 @@ public class DynamoDBStreamsShardSyncerTest {
         DynamoDBStreamsShardDetector mockDetector1 = mock(DynamoDBStreamsShardDetector.class);
         DynamoDBStreamsShardDetector mockDetector2 = mock(DynamoDBStreamsShardDetector.class);
 
-        when(mockDetector1.listShards()).thenReturn(Collections.singletonList(shard1));
-        when(mockDetector2.listShards()).thenReturn(Collections.singletonList(shard2));
+        when(mockDetector1.listShards(anyString())).thenReturn(Collections.singletonList(shard1));
+        when(mockDetector2.listShards(anyString())).thenReturn(Collections.singletonList(shard2));
 
         when(mockDetector1.streamIdentifier()).thenReturn(StreamIdentifier.singleStreamInstance(stream1Identifier));
         when(mockDetector2.streamIdentifier()).thenReturn(StreamIdentifier.singleStreamInstance(stream2Identifier));
@@ -392,6 +396,7 @@ public class DynamoDBStreamsShardSyncerTest {
         LeaseRefresher mockLeaseRefresher = mock(LeaseRefresher.class);
         when(mockLeaseRefresher.listLeasesForStream(any(StreamIdentifier.class)))
                 .thenReturn(Collections.emptyList());
+        when(mockLeaseRefresher.getLeaseTableIdentifier()).thenReturn("CONSUMER_ID");
 
         // Execute for both streams
         boolean result1 = multiStreamSyncer1.checkAndCreateLeaseForNewShards(
@@ -474,7 +479,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = Arrays.asList(rootShard, child1, child2, grandchild1,
                 grandchild2, grandchild3, grandchild4, grandchild5);
 
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
         when(leaseRefresher.listLeases()).thenReturn(Collections.emptyList());
 
         // Execute
@@ -560,7 +565,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = Arrays.asList(rootShard, child1, child2, grandchild1,
                 grandchild2, grandchild3, grandchild4, grandchild5);
 
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
         when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(Collections.emptyList());
 
@@ -620,7 +625,7 @@ public class DynamoDBStreamsShardSyncerTest {
                 true,
                 deletedStreamListProvider
         );
-        when(shardDetector.listShards()).thenThrow(exception);
+        when(shardDetector.listShards(anyString())).thenThrow(exception);
         
         // Execute and verify exception is propagated
         assertTrue(
@@ -632,14 +637,14 @@ public class DynamoDBStreamsShardSyncerTest {
                         false,
                         true));
         
-        verify(shardDetector, times(1)).listShards();
+        verify(shardDetector, times(1)).listShards(anyString());
 
         verifyNoInteractions(deletedStreamListProvider);
     }
 
     @Test
     void testShardSyncThrowsKinesisClientLibExceptionIfShardListIsNull() throws Exception {
-        when(shardDetector.listShards()).thenReturn(null);
+        when(shardDetector.listShards(anyString())).thenReturn(null);
         assertThrows(KinesisClientLibIOException.class, () ->
                 shardSyncer.checkAndCreateLeaseForNewShards(
                         shardDetector,
@@ -666,7 +671,7 @@ public class DynamoDBStreamsShardSyncerTest {
                 .message("Stream not found: " + MULTI_STREAM_NAME)
                 .build();
         
-        when(shardDetector.listShards()).thenThrow(exception);
+        when(shardDetector.listShards(anyString())).thenThrow(exception);
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
         
         // Execute - should not throw exception in multi-stream mode with DeletedStreamListProvider
@@ -681,7 +686,7 @@ public class DynamoDBStreamsShardSyncerTest {
         
         // Verify
         assertTrue(result);
-        verify(shardDetector, times(1)).listShards();
+        verify(shardDetector, times(1)).listShards(anyString());
         
         // Verify the stream was added to the deleted streams list
         verify(deletedStreamListProvider).add(MULTI_STREAM_IDENTIFIER);
@@ -747,7 +752,7 @@ public class DynamoDBStreamsShardSyncerTest {
         when(leaseRefresher.listLeases()).thenReturn(Arrays.asList(existingGrandparentLease, existingChild2Lease));
 
         // Setup shard detector
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
 
         // Execute with TRIM_HORIZON position
         boolean result = shardSyncer.checkAndCreateLeaseForNewShards(
@@ -801,7 +806,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = Arrays.asList(parentShard, childShard);
 
         // Mock ShardDetector
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
 
         // Test with ignoreUnexpectedChildShards = false
         assertThrows(KinesisClientLibIOException.class, () ->
@@ -829,7 +834,7 @@ public class DynamoDBStreamsShardSyncerTest {
         List<Shard> shards = Arrays.asList(parentShard, childShard);
 
         // Mock ShardDetector
-        when(shardDetector.listShards()).thenReturn(shards);
+        when(shardDetector.listShards(anyString())).thenReturn(shards);
 
         // Test with ignoreUnexpectedChildShards = true
         boolean result = shardSyncer.checkAndCreateLeaseForNewShards(
@@ -910,7 +915,7 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup mocks
         when(shardDetector.streamIdentifier()).thenReturn(currentStreamId);
-        when(shardDetector.listShards()).thenReturn(currentShards);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(currentStreamId))
                 .thenReturn(Arrays.asList(currentActiveLease, currentStaleLease));
 
@@ -998,7 +1003,7 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup mocks
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
-        when(shardDetector.listShards()).thenReturn(currentShards);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(stream1Leases);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
@@ -1132,7 +1137,7 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup mocks
         when(shardDetector.streamIdentifier()).thenReturn(streamId);
-        when(shardDetector.listShards()).thenReturn(currentShards);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(streamId)).thenReturn(streamLeases);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
@@ -1266,7 +1271,7 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup mocks
         when(shardDetector.streamIdentifier()).thenReturn(SINGLE_STREAM_IDENTIFIER);
-        when(shardDetector.listShards()).thenReturn(currentShards);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(SINGLE_STREAM_IDENTIFIER)).thenReturn(streamLeases);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
@@ -1399,7 +1404,7 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup mocks
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
-        when(shardDetector.listShards()).thenReturn(currentShards);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(streamLeases);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
@@ -1487,7 +1492,7 @@ public class DynamoDBStreamsShardSyncerTest {
 
         // Setup mocks
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
-        when(shardDetector.listShards()).thenReturn(currentShards);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeases()).thenReturn(currentLeases);
 
 

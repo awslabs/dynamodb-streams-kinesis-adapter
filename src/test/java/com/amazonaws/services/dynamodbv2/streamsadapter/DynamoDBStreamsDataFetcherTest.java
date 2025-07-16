@@ -17,14 +17,21 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.adapter.DynamoDBStreamsGetRecordsResponseAdapter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
+import software.amazon.awssdk.core.ApiName;
 import software.amazon.awssdk.services.dynamodb.model.GetRecordsRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetRecordsResponse;
 import software.amazon.awssdk.services.dynamodb.model.Record;
+import software.amazon.awssdk.services.dynamodb.model.Shard;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilter;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilterType;
 import software.amazon.awssdk.services.dynamodb.model.StreamStatus;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
 import software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest;
 import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
+import software.amazon.awssdk.services.kinesis.model.LimitExceededException;
 import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
 import software.amazon.awssdk.services.kinesis.model.StreamDescription;
@@ -37,14 +44,17 @@ import software.amazon.kinesis.retrieval.DataFetcherProviderConfig;
 import software.amazon.kinesis.retrieval.DataFetcherResult;
 import software.amazon.kinesis.retrieval.GetRecordsResponseAdapter;
 import software.amazon.kinesis.retrieval.KinesisDataFetcherProviderConfig;
+import software.amazon.kinesis.retrieval.RetrievalConfig;
 import software.amazon.kinesis.retrieval.kpl.ExtendedSequenceNumber;
 
+import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
+import static com.amazonaws.services.dynamodbv2.streamsadapter.DynamoDBStreamsDataFetcher.MAX_DESCRIBE_STREAM_ATTEMPTS_FOR_CHILD_SHARD_DISCOVERY_ON_NO_RECORDS;
 import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName;
 import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil.createKinesisStreamIdentifierFromDynamoDBStreamsArn;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +64,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class DynamoDBStreamsDataFetcherTest {
@@ -70,13 +83,14 @@ public class DynamoDBStreamsDataFetcherTest {
     private StreamIdentifier streamIdentifier;
     private DataFetcherProviderConfig dataFetcherProviderConfig;
     private MetricsFactory metricsFactory;
+    public static String CONSUMER_ID = "consumer-id";
 
     @BeforeEach
     void setup() {
         amazonDynamoDBStreamsAdapterClient = Mockito.mock(AmazonDynamoDBStreamsAdapterClient.class);
         streamIdentifier = StreamIdentifier.singleStreamInstance(STREAM_NAME);
         metricsFactory = new NullMetricsFactory();
-        dataFetcherProviderConfig = new KinesisDataFetcherProviderConfig(streamIdentifier, SHARD_ID, metricsFactory, MAX_RECORDS, Duration.ofMillis(30000L));
+        dataFetcherProviderConfig = new KinesisDataFetcherProviderConfig(streamIdentifier, SHARD_ID, metricsFactory, MAX_RECORDS, Duration.ofMillis(30000L), CONSUMER_ID);
         dynamoDBStreamsDataFetcher = new DynamoDBStreamsDataFetcher(amazonDynamoDBStreamsAdapterClient, dataFetcherProviderConfig);
     }
 
@@ -138,7 +152,7 @@ public class DynamoDBStreamsDataFetcherTest {
 
         Record record1 = createRecord("1");
         Record record2 = createRecord("2");
-        GetRecordsResponseAdapter response = new DynamoDBStreamsGetRecordsResponseAdapter(
+        DynamoDBStreamsGetRecordsResponseAdapter response = new DynamoDBStreamsGetRecordsResponseAdapter(
                 GetRecordsResponse.builder()
                         .records(Arrays.asList(record1, record2))
                         .nextShardIterator("next-iterator")
@@ -225,6 +239,12 @@ public class DynamoDBStreamsDataFetcherTest {
     private void mockGetShardIterator(String sequenceNumber, ShardIteratorType iteratorType, String iterator) {
         when(amazonDynamoDBStreamsAdapterClient.getShardIterator(
                 GetShardIteratorRequest.builder()
+                        .overrideConfiguration(AwsRequestOverrideConfiguration.builder()
+                                .addApiName(ApiName.builder()
+                                        .name(CONSUMER_ID)
+                                        .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
+                                        .build())
+                                .build())
                         .streamName(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME))
                         .shardId(SHARD_ID)
                         .startingSequenceNumber(sequenceNumber)
@@ -248,7 +268,6 @@ public class DynamoDBStreamsDataFetcherTest {
                         .build())
                 .build();
     }
-
 
     @Test
     void testGetDdbGetRecordsResponseWithShardEndAndDisabledStream() throws Exception {
@@ -313,5 +332,255 @@ public class DynamoDBStreamsDataFetcherTest {
         assertNotNull(result);
         assertTrue(result.records().isEmpty());
         assertEquals("next-iterator", result.nextShardIterator());
+    }
+    
+    @Test
+    void testGetChildShardsWithSuccessfulResponse() throws Exception {
+        // Setup
+        String shardId = "shard-123";
+        
+        // Create child shards for the response
+        Shard childShard1 = Shard.builder()
+                .shardId("child-shard-1")
+                .parentShardId(shardId)
+                .build();
+        
+        Shard childShard2 = Shard.builder()
+                .shardId("child-shard-2")
+                .parentShardId(shardId)
+                .build();
+        
+        // Create DescribeStream response with child shards
+        DescribeStreamResponse describeStreamResponse = DescribeStreamResponse.builder()
+                .streamDescription(StreamDescription.builder()
+                        .streamName(STREAM_NAME)
+                        .streamStatus(StreamStatus.ENABLED.toString())
+                        .shards(Arrays.asList(
+                                software.amazon.awssdk.services.kinesis.model.Shard.builder()
+                                        .shardId(childShard1.shardId())
+                                        .parentShardId(childShard1.parentShardId())
+                                        .hashKeyRange(software.amazon.awssdk.services.kinesis.model.HashKeyRange.builder()
+                                                .startingHashKey(BigInteger.ZERO.toString())
+                                                .endingHashKey(BigInteger.ONE.toString())
+                                                .build())
+                                        .build(),
+                                software.amazon.awssdk.services.kinesis.model.Shard.builder()
+                                        .shardId(childShard2.shardId())
+                                        .parentShardId(childShard2.parentShardId())
+                                        .hashKeyRange(software.amazon.awssdk.services.kinesis.model.HashKeyRange.builder()
+                                                .startingHashKey(BigInteger.ZERO.toString())
+                                                .endingHashKey(BigInteger.ONE.toString())
+                                                .build())
+                                        .build()
+                        ))
+                        .hasMoreShards(false)
+                        .build())
+                .build();
+        
+        // Mock the describeStreamWithFilter method
+        ArgumentCaptor<ShardFilter> shardFilterCaptor = ArgumentCaptor.forClass(ShardFilter.class);
+        when(amazonDynamoDBStreamsAdapterClient.describeStreamWithFilter(
+                Mockito.eq(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME)),
+                shardFilterCaptor.capture(), anyString()))
+                .thenReturn(describeStreamResponse);
+        
+        // Execute
+        DescribeStreamResponse result = dynamoDBStreamsDataFetcher.getChildShards(STREAM_NAME, shardId);
+        
+        // Verify
+        assertNotNull(result);
+        assertEquals(2, result.streamDescription().shards().size());
+        
+        // Verify the ShardFilter was correctly constructed
+        ShardFilter capturedFilter = shardFilterCaptor.getValue();
+        assertEquals(ShardFilterType.CHILD_SHARDS, capturedFilter.type());
+        assertEquals(shardId, capturedFilter.shardId());
+    }
+    
+    @Test
+    void testGetChildShardsWithDisabledStream() throws Exception {
+        // Setup
+        String shardId = "shard-123";
+        
+        // Create DescribeStream response for disabled stream with no shards
+        DescribeStreamResponse describeStreamResponse = DescribeStreamResponse.builder()
+                .streamDescription(StreamDescription.builder()
+                        .streamName(STREAM_NAME)
+                        .streamStatus(StreamStatus.DISABLED.toString())
+                        .shards(Collections.emptyList())
+                        .hasMoreShards(false)
+                        .build())
+                .build();
+        
+        // Mock the describeStreamWithFilter method
+        when(amazonDynamoDBStreamsAdapterClient.describeStreamWithFilter(
+                Mockito.eq(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME)),
+                any(ShardFilter.class), anyString()))
+                .thenReturn(describeStreamResponse);
+        
+        // Execute
+        DescribeStreamResponse result = dynamoDBStreamsDataFetcher.getChildShards(STREAM_NAME, shardId);
+        
+        // Verify
+        assertNull(result); // Should return null for disabled stream with no child shards
+    }
+    
+    @Test
+    void testGetChildShardsWithException() throws Exception {
+        // Setup
+        String shardId = "shard-123";
+        
+        // Mock the describeStreamWithFilter method to throw an exception
+        when(amazonDynamoDBStreamsAdapterClient.describeStreamWithFilter(
+                Mockito.eq(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME)),
+                any(ShardFilter.class), anyString()))
+                .thenThrow(new RuntimeException("Test exception"));
+        
+        // Execute
+        DescribeStreamResponse result = dynamoDBStreamsDataFetcher.getChildShards(STREAM_NAME, shardId);
+        
+        // Verify
+        assertNull(result); // Should return null when an exception occurs
+    }
+
+    @Test
+    void testGetChildShardsWithLimitExceededExceptionExhaustsRetries() throws Exception {
+        // Setup
+        String shardId = "shard-123";
+
+        // Mock the describeStreamWithFilter method to throw an exception
+        when(amazonDynamoDBStreamsAdapterClient.describeStreamWithFilter(
+                Mockito.eq(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME)),
+                any(ShardFilter.class), anyString()))
+                .thenThrow(LimitExceededException.builder().message("LimitExceededException").build());
+
+        // Execute
+        DescribeStreamResponse result = dynamoDBStreamsDataFetcher.getChildShards(STREAM_NAME, shardId);
+
+        // Verify
+        assertNull(result); // Should return null when an exception occurs
+        verify(amazonDynamoDBStreamsAdapterClient,
+                times(MAX_DESCRIBE_STREAM_ATTEMPTS_FOR_CHILD_SHARD_DISCOVERY_ON_NO_RECORDS))
+                .describeStreamWithFilter(any(), any(), anyString());
+    }
+    
+    @Test
+    void testGetChildShardsWithRetries() throws Exception {
+        // Setup
+        String shardId = "shard-123";
+        
+        // First call returns empty shards (will trigger retry)
+        DescribeStreamResponse emptyResponse = DescribeStreamResponse.builder()
+                .streamDescription(StreamDescription.builder()
+                        .streamName(STREAM_NAME)
+                        .streamStatus(StreamStatus.ENABLED.toString())
+                        .shards(Collections.emptyList())
+                        .hasMoreShards(false)
+                        .build())
+                .build();
+        
+        // Second call returns child shards
+        DescribeStreamResponse withShardsResponse = DescribeStreamResponse.builder()
+                .streamDescription(StreamDescription.builder()
+                        .streamName(STREAM_NAME)
+                        .streamStatus(StreamStatus.ENABLED.toString())
+                        .shards(Collections.singletonList(
+                                software.amazon.awssdk.services.kinesis.model.Shard.builder()
+                                        .shardId("child-shard-1")
+                                        .parentShardId(shardId)
+                                        .build()
+                        ))
+                        .hasMoreShards(false)
+                        .build())
+                .build();
+        
+        // Mock the describeStreamWithFilter method to return empty response first, then response with shards
+        when(amazonDynamoDBStreamsAdapterClient.describeStreamWithFilter(
+                Mockito.eq(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME)),
+                any(ShardFilter.class), anyString()))
+                .thenReturn(emptyResponse)
+                .thenReturn(withShardsResponse);
+        
+        // Execute
+        DescribeStreamResponse result = dynamoDBStreamsDataFetcher.getChildShards(STREAM_NAME, shardId);
+        
+        // Verify
+        assertNotNull(result);
+        assertEquals(1, result.streamDescription().shards().size());
+        assertEquals("child-shard-1", result.streamDescription().shards().get(0).shardId());
+    }
+    
+    @Test
+    void testGetDdbGetRecordsResponseWithShardEndAndChildShards() throws Exception {
+        // Setup
+        GetRecordsRequest request = GetRecordsRequest.builder()
+                .shardIterator("some-iterator")
+                .limit(100)
+                .build();
+
+        // Create GetRecordsResponse with null nextShardIterator (indicating shard end)
+        GetRecordsResponse recordsResponse = GetRecordsResponse.builder()
+                .records(Collections.emptyList())
+                .nextShardIterator(null)
+                .build();
+
+        // Create DescribeStream response with child shards
+        DescribeStreamResponse describeStreamResponse = DescribeStreamResponse.builder()
+                .streamDescription(StreamDescription.builder()
+                        .streamName(STREAM_NAME)
+                        .streamStatus(StreamStatus.ENABLED.toString())
+                        .shards(Arrays.asList(
+                                software.amazon.awssdk.services.kinesis.model.Shard.builder()
+                                        .shardId("child-shard-1")
+                                        .parentShardId(SHARD_ID)
+                                        .hashKeyRange(software.amazon.awssdk.services.kinesis.model.HashKeyRange.builder()
+                                                .startingHashKey("0")
+                                                .endingHashKey("499")
+                                                .build())
+                                        .build(),
+                                software.amazon.awssdk.services.kinesis.model.Shard.builder()
+                                        .shardId("child-shard-2")
+                                        .parentShardId(SHARD_ID)
+                                        .adjacentParentShardId("adjacent-shard")
+                                        .hashKeyRange(software.amazon.awssdk.services.kinesis.model.HashKeyRange.builder()
+                                                .startingHashKey("500")
+                                                .endingHashKey("999")
+                                                .build())
+                                        .build()
+                        ))
+                        .hasMoreShards(false)
+                        .build())
+                .build();
+
+        // Mock responses
+        when(amazonDynamoDBStreamsAdapterClient.getDynamoDBStreamsRecords(any(GetRecordsRequest.class)))
+                .thenReturn(CompletableFuture.supplyAsync(() -> new DynamoDBStreamsGetRecordsResponseAdapter(recordsResponse)));
+        
+        // Mock the getChildShards method to return the response with child shards
+        DynamoDBStreamsDataFetcher spyFetcher = Mockito.spy(dynamoDBStreamsDataFetcher);
+        Mockito.doReturn(describeStreamResponse).when(spyFetcher).getChildShards(
+                Mockito.eq(STREAM_NAME), Mockito.eq(SHARD_ID));
+
+        // Execute
+        GetRecordsResponseAdapter result = spyFetcher.getGetRecordsResponse(request);
+
+        // Verify
+        assertNotNull(result);
+        assertTrue(result.records().isEmpty());
+        assertNull(result.nextShardIterator());
+        
+        // Verify child shards were added
+        assertEquals(2, result.childShards().size());
+        
+        // Verify first child shard
+        assertEquals("child-shard-1", result.childShards().get(0).shardId());
+        assertEquals(1, result.childShards().get(0).parentShards().size());
+        assertEquals(SHARD_ID, result.childShards().get(0).parentShards().get(0));
+        
+        // Verify second child shard
+        assertEquals("child-shard-2", result.childShards().get(1).shardId());
+        assertEquals(2, result.childShards().get(1).parentShards().size());
+        assertEquals(SHARD_ID, result.childShards().get(1).parentShards().get(0));
+        assertEquals("adjacent-shard", result.childShards().get(1).parentShards().get(1));
     }
 }

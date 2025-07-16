@@ -46,12 +46,30 @@ public final class DynamoDBStreamsRequestsBuilder {
     }
 
     /**
+     * Creates a builder for ListStreams request with user agent information.
+     *
+     * @return ListStreamsRequest builder with user agent configuration
+     */
+    public static ListStreamsRequest.Builder listStreamsRequestBuilder(String consumerId) {
+        return appendUserAgent(ListStreamsRequest.builder(), consumerId);
+    }
+
+    /**
      * Creates a builder for GetRecords request with user agent information.
      *
      * @return GetRecordsRequest builder with user agent configuration
      */
     public static GetRecordsRequest.Builder getRecordsRequestBuilder() {
         return appendUserAgent(GetRecordsRequest.builder());
+    }
+
+    /**
+     * Creates a builder for GetRecords request with user agent information.
+     *
+     * @return GetRecordsRequest builder with user agent configuration
+     */
+    public static GetRecordsRequest.Builder getRecordsRequestBuilder(String consumerId) {
+        return appendUserAgent(GetRecordsRequest.builder(), consumerId);
     }
 
     /**
@@ -64,6 +82,15 @@ public final class DynamoDBStreamsRequestsBuilder {
     }
 
     /**
+     * Creates a builder for GetShardIterator request with user agent information.
+     *
+     * @return GetShardIteratorRequest builder with user agent configuration
+     */
+    public static GetShardIteratorRequest.Builder getShardIteratorRequestBuilder(String consumerId) {
+        return appendUserAgent(GetShardIteratorRequest.builder(), consumerId);
+    }
+
+    /**
      * Creates a builder for DescribeStream request with user agent information.
      *
      * @return DescribeStreamRequest builder with user agent configuration
@@ -72,11 +99,30 @@ public final class DynamoDBStreamsRequestsBuilder {
         return appendUserAgent(DescribeStreamRequest.builder());
     }
 
+    /**
+     * Creates a builder for DescribeStream request with user agent information.
+     *
+     * @return DescribeStreamRequest builder with user agent configuration
+     */
+    public static DescribeStreamRequest.Builder describeStreamRequestBuilder(String consumerId) {
+        return appendUserAgent(DescribeStreamRequest.builder(), consumerId);
+    }
+
     @SuppressWarnings("unchecked")
     private static <T extends AwsRequest.Builder> T appendUserAgent(final T builder) {
         return (T) builder.overrideConfiguration(AwsRequestOverrideConfiguration.builder()
                 .addApiName(ApiName.builder()
                         .name(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT)
+                        .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
+                        .build())
+                .build());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends AwsRequest.Builder> T appendUserAgent(final T builder, String consumerId) {
+        return (T) builder.overrideConfiguration(AwsRequestOverrideConfiguration.builder()
+                .addApiName(ApiName.builder()
+                        .name(String.format("%s-%s", consumerId, RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT))
                         .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
                         .build())
                 .build());

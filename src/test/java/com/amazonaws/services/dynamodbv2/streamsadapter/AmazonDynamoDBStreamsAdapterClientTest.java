@@ -16,6 +16,7 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -28,6 +29,10 @@ import software.amazon.awssdk.services.dynamodb.model.GetShardIteratorRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetShardIteratorResponse;
 import software.amazon.awssdk.services.dynamodb.model.ListStreamsRequest;
 import software.amazon.awssdk.services.dynamodb.model.ListStreamsResponse;
+import software.amazon.awssdk.services.dynamodb.model.SequenceNumberRange;
+import software.amazon.awssdk.services.dynamodb.model.Shard;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilter;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilterType;
 import software.amazon.awssdk.services.dynamodb.model.Stream;
 import software.amazon.awssdk.services.dynamodb.model.StreamDescription;
 import software.amazon.awssdk.services.dynamodb.model.StreamRecord;
@@ -276,5 +281,87 @@ class AmazonDynamoDBStreamsAdapterClientTest {
     void testClose() {
         adapterClient.close();
         verify(dynamoDbStreamsClient).close();
+    }
+    
+    @Test
+    void testDescribeStreamWithFilter() {
+        // Setup
+        String streamArn = STREAM_ARN;
+        String shardId = SHARD_ID;
+        
+        // Create ShardFilter for child shards
+        ShardFilter shardFilter = ShardFilter.builder()
+                .type(ShardFilterType.CHILD_SHARDS)
+                .shardId(shardId)
+                .build();
+        
+        // Create DynamoDB response with shards
+        DescribeStreamResponse dynamoResponse = DescribeStreamResponse.builder()
+                .streamDescription(StreamDescription.builder()
+                        .streamArn(streamArn)
+                        .streamStatus(StreamStatus.ENABLED)
+                        .shards(Arrays.asList(
+                                Shard.builder()
+                                        .shardId("child-shard-1")
+                                        .parentShardId(shardId)
+                                        .sequenceNumberRange(SequenceNumberRange.builder()
+                                                .startingSequenceNumber("123")
+                                                .endingSequenceNumber("456")
+                                                .build())
+                                        .build(),
+                                Shard.builder()
+                                        .shardId("child-shard-2")
+                                        .parentShardId(shardId)
+                                        .sequenceNumberRange(SequenceNumberRange.builder()
+                                                .startingSequenceNumber("234")
+                                                .endingSequenceNumber("567")
+                                                .build())
+                                        .build()
+                        ))
+                        .build())
+                .build();
+        
+        // Capture the request to verify filter is passed correctly
+        ArgumentCaptor<DescribeStreamRequest> requestCaptor = ArgumentCaptor.forClass(DescribeStreamRequest.class);
+        when(dynamoDbStreamsClient.describeStream(requestCaptor.capture()))
+                .thenReturn(dynamoResponse);
+        
+        // Execute
+        software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse response = 
+                adapterClient.describeStreamWithFilter(streamArn, shardFilter, "CONSUMER_ID");
+        
+        // Verify
+        assertNotNull(response);
+        assertEquals(streamArn, response.streamDescription().streamName());
+        assertEquals("ENABLED", response.streamDescription().streamStatusAsString());
+        assertEquals(2, response.streamDescription().shards().size());
+        
+        // Verify the request was constructed correctly
+        DescribeStreamRequest capturedRequest = requestCaptor.getValue();
+        assertEquals(streamArn, capturedRequest.streamArn());
+        assertEquals(ShardFilterType.CHILD_SHARDS, capturedRequest.shardFilter().type());
+        assertEquals(shardId, capturedRequest.shardFilter().shardId());
+    }
+    
+    @Test
+    void testDescribeStreamWithFilterException() {
+        // Setup
+        String streamArn = STREAM_ARN;
+        String shardId = SHARD_ID;
+        
+        // Create ShardFilter for child shards
+        ShardFilter shardFilter = ShardFilter.builder()
+                .type(ShardFilterType.CHILD_SHARDS)
+                .shardId(shardId)
+                .build();
+        
+        // Mock exception from DynamoDB
+        RuntimeException dynamoException = new RuntimeException("Test exception");
+        when(dynamoDbStreamsClient.describeStream(any(DescribeStreamRequest.class)))
+                .thenThrow(dynamoException);
+        
+        // Execute and verify exception is transformed
+        assertThrows(RuntimeException.class, () -> 
+                adapterClient.describeStreamWithFilter(streamArn, shardFilter, "CONSUMER_ID"));
     }
 }

@@ -19,6 +19,7 @@ import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMappe
 import com.amazonaws.services.dynamodbv2.streamsadapter.adapter.DynamoDBStreamsGetRecordsResponseAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.common.DynamoDBStreamsRequestsBuilder;
 import com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -28,12 +29,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
+import software.amazon.awssdk.core.ApiName;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.dynamodb.model.GetRecordsRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetRecordsResponse;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilter;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilterType;
+import software.amazon.awssdk.services.dynamodb.model.StreamStatus;
+import software.amazon.awssdk.services.kinesis.model.ChildShard;
+import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
 import software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest;
 import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
 import software.amazon.awssdk.services.kinesis.model.KinesisException;
+import software.amazon.awssdk.services.kinesis.model.LimitExceededException;
 import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
@@ -46,14 +55,18 @@ import software.amazon.kinesis.retrieval.AWSExceptionManager;
 import software.amazon.kinesis.retrieval.DataFetcherProviderConfig;
 import software.amazon.kinesis.retrieval.DataFetcherResult;
 import software.amazon.kinesis.retrieval.GetRecordsResponseAdapter;
+import software.amazon.kinesis.retrieval.RetrievalConfig;
 import software.amazon.kinesis.retrieval.RetryableRetrievalException;
 import software.amazon.kinesis.retrieval.kpl.ExtendedSequenceNumber;
 import software.amazon.kinesis.retrieval.polling.DataFetcher;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Implements fetching data from DynamoDB Streams using GetRecords and GetShardIterator API.
@@ -62,6 +75,10 @@ import java.util.concurrent.TimeoutException;
 public class DynamoDBStreamsDataFetcher implements DataFetcher {
     private static final String METRICS_PREFIX = "DynamoDBStreamsDataFetcher";
     private static final String OPERATION = "ProcessTask";
+
+    protected static final int MAX_DESCRIBE_STREAM_ATTEMPTS_FOR_CHILD_SHARD_DISCOVERY_ON_NO_RECORDS = 10;
+    private static final int DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_MAX_DELAY_IN_MILLIS = 1000;
+    private static final int DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_BASE_DELAY_IN_MILLIS = 50;
 
     @NonNull
     private final AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient;
@@ -93,6 +110,8 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
     final Duration maxFutureWait;
 
     private InitialPositionInStreamExtended initialPositionInStream;
+
+    private String consumerId;
 
     /**
      * Reusable {@link AWSExceptionManager}.
@@ -158,6 +177,7 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
                 KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(streamIdentifier.streamName()),
                 shardId);
         this.maxFutureWait = dynamoDBStreamsDataFetcherProviderConfig.getKinesisRequestTimeout();
+        this.consumerId = dynamoDBStreamsDataFetcherProviderConfig.consumerId();
     }
 
     /**
@@ -224,7 +244,13 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
         GetShardIteratorRequest.Builder getShardIteratorRequestBuilder = GetShardIteratorRequest
                 .builder()
                 .streamName(createDynamoDBStreamsArnFromKinesisStreamName(streamIdentifier.streamName()))
-                .shardId(shardId);
+                .shardId(shardId)
+                .overrideConfiguration(AwsRequestOverrideConfiguration.builder()
+                        .addApiName(ApiName.builder()
+                                .name(consumerId)
+                                .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
+                                .build())
+                        .build());
 
         if (Objects.equals(ExtendedSequenceNumber.LATEST.sequenceNumber(), sequenceNumber)) {
             getShardIteratorRequestBuilder.shardIteratorType(ShardIteratorType.LATEST);
@@ -327,7 +353,78 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
      */
     public GetRecordsResponseAdapter getGetRecordsResponse(GetRecordsRequest request)
             throws ExecutionException, InterruptedException, TimeoutException {
-        return amazonDynamoDBStreamsAdapterClient.getDynamoDBStreamsRecords(request).get();
+        DynamoDBStreamsGetRecordsResponseAdapter getRecordsResponseAdapter =
+                amazonDynamoDBStreamsAdapterClient.getDynamoDBStreamsRecords(request).get();
+
+        // We have reached the end of the shard, call DescribeStream API with ShardFilter parameter
+        if (Objects.isNull(getRecordsResponseAdapter.nextShardIterator())) {
+            DescribeStreamResponse describeStreamResponse = getChildShards(streamIdentifier.streamName(), shardId);
+            if (describeStreamResponse != null) {
+                List<ChildShard> childShards = describeStreamResponse.streamDescription()
+                        .shards()
+                        .stream()
+                        .map(shard -> ChildShard.builder()
+                                .shardId(shard.shardId())
+                                .parentShards(
+                                        Stream.of(shard.parentShardId(), shard.adjacentParentShardId())
+                                        .filter(Objects::nonNull)
+                                        .collect(Collectors.toList()))
+                                .hashKeyRange(shard.hashKeyRange())
+                                .build()
+                        )
+                        .collect(Collectors.toList());
+                getRecordsResponseAdapter.addChildShards(childShards);
+            }
+        }
+        return getRecordsResponseAdapter;
+    }
+
+    @VisibleForTesting
+    protected DescribeStreamResponse getChildShards(String streamName, String shardId) throws InterruptedException {
+        int attempts = 0;
+        do {
+            try {
+                DescribeStreamResponse describeStreamResponse = amazonDynamoDBStreamsAdapterClient
+                        .describeStreamWithFilter(
+                                createDynamoDBStreamsArnFromKinesisStreamName(streamName),
+                                ShardFilter.builder()
+                                        .type(ShardFilterType.CHILD_SHARDS)
+                                        .shardId(shardId)
+                                        .build(),
+                                consumerId);
+
+                if (!describeStreamResponse.streamDescription().shards().isEmpty()) {
+                    return describeStreamResponse;
+                }
+
+                // if stream is disabled and no child shards are found, we will not retry for this case.
+                if (StreamStatus.DISABLED.toString().equals(
+                        describeStreamResponse.streamDescription().streamStatusAsString())) {
+                    return null;
+                }
+            } catch (LimitExceededException e) {
+                log.error("Caught limit exceeded exception while getting child shards for stream and shard: {}",
+                        streamAndShardId, e);
+            } catch (Exception e) {
+                // if there is any exception, fall back to paginated DescribeStream call for shard discovery
+                log.error("Caught exception while getting child shards from stream and shard: {}",
+                        streamAndShardId, e);
+                return null;
+            }
+            attempts++;
+            // Calculate exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, 1000ms, ...
+            long delayMillis =
+                    Math.min(DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_BASE_DELAY_IN_MILLIS
+                                    * (1L << attempts),
+                            DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_MAX_DELAY_IN_MILLIS);
+
+            // Add jitter (±20% of delay)
+            long jitter = (long) (delayMillis * 0.2 * (Math.random() - 0.5) * 2);
+            delayMillis += jitter;
+            Thread.sleep(delayMillis);
+        } while (attempts < MAX_DESCRIBE_STREAM_ATTEMPTS_FOR_CHILD_SHARD_DISCOVERY_ON_NO_RECORDS);
+        log.error("Finding child shards for stream and shard: {} failed after {} attempts", streamAndShardId, attempts);
+        return null;
     }
 
     /**
@@ -337,7 +434,7 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
      * @return GetRecordsRequest.
      */
     public GetRecordsRequest ddbGetRecordsRequest(String nextIterator) {
-        return DynamoDBStreamsRequestsBuilder.getRecordsRequestBuilder()
+        return DynamoDBStreamsRequestsBuilder.getRecordsRequestBuilder(consumerId)
                 .shardIterator(nextIterator)
                 .limit(maxRecords)
                 .build();

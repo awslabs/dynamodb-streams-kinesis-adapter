@@ -24,6 +24,8 @@ import lombok.NonNull;
 import lombok.Synchronized;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
+import software.amazon.awssdk.core.ApiName;
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
@@ -36,6 +38,8 @@ import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.common.StreamIdentifier;
 import software.amazon.kinesis.leases.ShardDetector;
 import software.amazon.kinesis.retrieval.AWSExceptionManager;
+import software.amazon.kinesis.retrieval.RetrievalConfig;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -149,7 +153,7 @@ public class DynamoDBStreamsShardDetector implements ShardDetector {
                     if (shard == null) {
                         log.info("Too many shard map cache misses for stream: {} or " +
                                 "cache is out of date -- forcing a refresh", streamArn);
-                        describeStream(null);
+                        describeStream(null, "");
                         shard = cachedShardMap.get(shardId);
 
                         if (shard == null) {
@@ -180,12 +184,19 @@ public class DynamoDBStreamsShardDetector implements ShardDetector {
     @Override
     @Synchronized
     public List<Shard> listShards() {
-        DescribeStreamResult describeStreamResult = describeStream(null);
+        DescribeStreamResult describeStreamResult = describeStream(null, "");
+        return describeStreamResult.getShards();
+    }
+
+    @Override
+    @Synchronized
+    public List<Shard> listShards(String consumerId) {
+        DescribeStreamResult describeStreamResult = describeStream(null, consumerId);
         return describeStreamResult.getShards();
     }
 
     @Synchronized
-    public DescribeStreamResult describeStream(String lastSeenShardId) {
+    public DescribeStreamResult describeStream(String lastSeenShardId, String consumerId) {
         ShardGraphTracker shardTracker = new ShardGraphTracker();
         String exclusiveStartShardId = lastSeenShardId;
         DescribeStreamResult describeStreamResult = new DescribeStreamResult();
@@ -193,7 +204,7 @@ public class DynamoDBStreamsShardDetector implements ShardDetector {
 
         // Phase 1: Collect all shards from Paginations.
         do {
-            describeStreamResponse = describeStreamResponse(exclusiveStartShardId);
+            describeStreamResponse = describeStreamResponse(exclusiveStartShardId, consumerId);
             // Collect shards
             shardTracker.collectShards(describeStreamResponse.streamDescription().shards());
 
@@ -228,10 +239,16 @@ public class DynamoDBStreamsShardDetector implements ShardDetector {
         return describeStreamResult;
     }
 
-    private DescribeStreamResponse describeStreamResponse(String exclusiveStartShardId) {
+    private DescribeStreamResponse describeStreamResponse(String exclusiveStartShardId, String consumerId) {
         DescribeStreamRequest describeStreamRequest = DescribeStreamRequest.builder()
                 .streamName(this.streamArn)
                 .exclusiveStartShardId(exclusiveStartShardId)
+                .overrideConfiguration(AwsRequestOverrideConfiguration.builder()
+                        .addApiName(ApiName.builder()
+                                .name(consumerId)
+                                .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
+                                .build())
+                        .build())
                 .build();
 
         DescribeStreamResponse describeStreamResponse;

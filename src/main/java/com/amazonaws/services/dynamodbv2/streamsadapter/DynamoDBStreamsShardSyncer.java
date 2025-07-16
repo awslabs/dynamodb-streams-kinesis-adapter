@@ -164,7 +164,8 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
             throws ProvisionedThroughputException, InvalidStateException, DependencyException {
         LOG.info("syncShardLeases " + streamArn  + ": begin");
         long startTimeMillis = System.currentTimeMillis();
-        List<Shard> shards = getShardList(shardDetector);
+        String consumerId = leaseRefresher.getLeaseTableIdentifier();
+        List<Shard> shards = getShardList(shardDetector, consumerId);
         LOG.debug("Num shards " + streamArn  + ": " + shards.size());
         Map<String, Shard> shardIdToShardMap = constructShardIdToShardMap(shards);
         Map<String, Set<String>> shardIdToChildShardIdsMap = constructShardIdToChildShardIdsMap(shardIdToShardMap);
@@ -209,11 +210,12 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
         LOG.info("syncShardLeases: " + streamArn  + ": end");
     }
 
-    private List<Shard> getShardList(@NonNull final ShardDetector shardDetector) throws KinesisClientLibIOException {
+    private List<Shard> getShardList(@NonNull final ShardDetector shardDetector, String consumerId)
+            throws KinesisClientLibIOException {
         // Fallback to existing behavior for backward compatibility
         List<Shard> shardList = Collections.emptyList();
         try {
-            shardList = shardDetector.listShards();
+            shardList = shardDetector.listShards(consumerId);
         } catch (ResourceNotFoundException e) {
             if (nonNull(this.deletedStreamListProvider) && isMultiStreamMode) {
                 deletedStreamListProvider.add(StreamIdentifier.multiStreamInstance(streamIdentifier));
