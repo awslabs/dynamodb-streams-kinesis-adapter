@@ -19,16 +19,19 @@ import software.amazon.awssdk.services.dynamodb.model.Record;
 import software.amazon.awssdk.services.kinesis.model.ChildShard;
 import software.amazon.kinesis.retrieval.GetRecordsResponseAdapter;
 import software.amazon.kinesis.retrieval.KinesisClientRecord;
-import java.util.Collections;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class DynamoDBStreamsGetRecordsResponseAdapter implements GetRecordsResponseAdapter {
 
     private final GetRecordsResponse response;
+    private final List<ChildShard> childShards;
 
     public DynamoDBStreamsGetRecordsResponseAdapter(GetRecordsResponse response) {
         this.response = response;
+        this.childShards = new ArrayList<>();
     }
 
     @Override
@@ -52,7 +55,7 @@ public class DynamoDBStreamsGetRecordsResponseAdapter implements GetRecordsRespo
 
     @Override
     public List<ChildShard> childShards() {
-        return Collections.emptyList();
+        return this.childShards;
     }
 
     @Override
@@ -63,5 +66,9 @@ public class DynamoDBStreamsGetRecordsResponseAdapter implements GetRecordsRespo
     @Override
     public String requestId() {
         return response.responseMetadata().requestId();
+    }
+
+    public void addChildShards(List<ChildShard> childShards) {
+        this.childShards.addAll(childShards);
     }
 }

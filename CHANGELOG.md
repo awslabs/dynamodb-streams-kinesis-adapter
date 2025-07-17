@@ -1,5 +1,9 @@
-### Latest Release (v2.0.0)
+### Latest Release (v2.0.1)
+* Added support for optional shard filter parameter in DescribeStream api that allows customers to fetch child shards of a read_only parent shard.
+* Fixes the [bug](https://github.com/awslabs/dynamodb-streams-kinesis-adapter/issues/62) where dynamodb-streams-kinesis-adapter was not constructing stream arn properly for china aws partition.
+* Bump aws sdk to 2.32.0
 
+### Release (v2.0.0)
 * Major version upgrade to support Amazon Kinesis Client Library (KCL) version 3.x
 * Upgrades AWS Java SDK to version 2.x, removing dependency on AWS SDK v1
 * Provides a custom StreamsSchedulerFactory for creating a KCL scheduler optimized for DynamoDB Streams

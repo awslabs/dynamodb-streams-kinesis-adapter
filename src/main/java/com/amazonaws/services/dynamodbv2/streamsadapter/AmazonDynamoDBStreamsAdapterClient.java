@@ -25,7 +25,10 @@ import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.ApiName;
+import software.amazon.awssdk.core.RequestOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetryStrategy;
@@ -34,6 +37,7 @@ import software.amazon.awssdk.retries.StandardRetryStrategy;
 import software.amazon.awssdk.retries.api.BackoffStrategy;
 import software.amazon.awssdk.services.dynamodb.model.DescribeStreamRequest;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilter;
 import software.amazon.awssdk.services.dynamodb.model.TrimmedDataAccessException;
 import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsClient;
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
@@ -46,8 +50,10 @@ import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
 import software.amazon.awssdk.services.kinesis.model.ListStreamsRequest;
 import software.amazon.awssdk.services.kinesis.model.ListStreamsResponse;
 import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
-import software.amazon.kinesis.retrieval.GetRecordsResponseAdapter;
+
 import java.time.Duration;
+import java.util.Collections;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -71,6 +77,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     private SkipRecordsBehavior skipRecordsBehavior = SkipRecordsBehavior.SKIP_RECORDS_TO_TRIM_HORIZON;
     private static final int MAX_DESCRIBE_STREAM_RETRY_ATTEMPTS = 50;
     private static final Duration DESCRIBE_STREAM_CALLS_DELAY = Duration.ofMillis(1000);
+    private static final String KCL_CONSUMER_ID_PREFIX = "KCL-ConsumerId";
 
     private Region region;
 
@@ -157,9 +164,10 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     public CompletableFuture<DescribeStreamResponse> describeStream(
             software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest describeStreamRequest)
             throws AwsServiceException, SdkClientException {
+        String consumerId = getConsumerId(describeStreamRequest.overrideConfiguration());
         return CompletableFuture.supplyAsync(() -> {
             DescribeStreamRequest ddbDescribeStreamRequest =
-                    DynamoDBStreamsRequestsBuilder.describeStreamRequestBuilder()
+                    DynamoDBStreamsRequestsBuilder.describeStreamRequestBuilder(consumerId)
                             .streamArn(describeStreamRequest.streamName())
                             .limit(describeStreamRequest.limit())
                             .exclusiveStartShardId(describeStreamRequest.exclusiveStartShardId())
@@ -173,6 +181,17 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
             }
             return KinesisMapperUtil.convertDynamoDBDescribeStreamResponseToKinesisDescribeStreamResponse(result);
         });
+    }
+
+    private String getConsumerId(Optional<AwsRequestOverrideConfiguration> overrideConfiguration) {
+        return overrideConfiguration
+                .map(RequestOverrideConfiguration::apiNames)
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(ApiName::name)
+                .filter(name -> name.contains(KCL_CONSUMER_ID_PREFIX))
+                .findFirst()
+                .orElse("");
     }
 
     /**
@@ -189,8 +208,9 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
 
     private GetShardIteratorResponse getShardIteratorResponse(GetShardIteratorRequest getShardIteratorRequest)
             throws AwsServiceException, SdkClientException {
+        String consumerId = getConsumerId(getShardIteratorRequest.overrideConfiguration());
         software.amazon.awssdk.services.dynamodb.model.GetShardIteratorRequest ddbGetShardIteratorRequest =
-                DynamoDBStreamsRequestsBuilder.getShardIteratorRequestBuilder()
+                DynamoDBStreamsRequestsBuilder.getShardIteratorRequestBuilder(consumerId)
                         .streamArn(getShardIteratorRequest.streamName())
                         .shardIteratorType(getShardIteratorRequest.shardIteratorTypeAsString())
                         .shardId(getShardIteratorRequest.shardId())
@@ -271,7 +291,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
                 + " See getDynamoDBStreamsRecords function");
     }
 
-    public CompletableFuture<GetRecordsResponseAdapter> getDynamoDBStreamsRecords(
+    public CompletableFuture<DynamoDBStreamsGetRecordsResponseAdapter> getDynamoDBStreamsRecords(
             software.amazon.awssdk.services.dynamodb.model.GetRecordsRequest ddbGetRecordsRequest
     ) throws AwsServiceException, SdkClientException {
         return CompletableFuture.supplyAsync(() -> {
@@ -284,6 +304,24 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
             }
             return new DynamoDBStreamsGetRecordsResponseAdapter(result);
         });
+    }
+
+    public DescribeStreamResponse describeStreamWithFilter(String streamArn, ShardFilter shardFilter,
+                                                           String consumerId) {
+        DescribeStreamRequest describeStreamRequest =
+                DynamoDBStreamsRequestsBuilder.describeStreamRequestBuilder(consumerId)
+                        .streamArn(streamArn)
+                        .shardFilter(shardFilter)
+                        .build();
+        software.amazon.awssdk.services.dynamodb.model.DescribeStreamResponse describeStreamResponse;
+        try {
+            describeStreamResponse = internalClient.describeStream(describeStreamRequest);
+        } catch (AwsServiceException e) {
+            throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisDescribeStream(e);
+        }
+        return KinesisMapperUtil.convertDynamoDBDescribeStreamResponseToKinesisDescribeStreamResponse(
+                describeStreamResponse
+        );
     }
 
     /**

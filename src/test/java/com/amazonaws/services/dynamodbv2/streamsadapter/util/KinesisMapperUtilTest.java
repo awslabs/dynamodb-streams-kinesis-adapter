@@ -116,6 +116,7 @@ public class KinesisMapperUtilTest {
                 KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(emptyComponents));
     }
 
+    @Test
     void testSingleStreamIdentifierConsistency() {
         // Test that stream identifiers remain consistent through multiple conversions
         String originalArn = "arn:aws:dynamodb:us-west-2:123456789012:table/TestTable/stream/2024-02-03T00:00:00.000";
@@ -123,6 +124,21 @@ public class KinesisMapperUtilTest {
         String reconstructedArn = KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(streamIdentifier);
 
         Assertions.assertEquals(originalArn, reconstructedArn);
+    }
+
+    @Test
+    void testSingleStreamIdentifierConsistencyWithDifferentAwsPartition() {
+        // Test that stream identifiers remain consistent through multiple conversions
+        String originalArn = "arn:aws-cn:dynamodb:cn-north-1:123456789012:table/TestTable/stream/2024-02-03T00:00:00.000";
+        String streamIdentifier = KinesisMapperUtil.createKinesisStreamIdentifierFromDynamoDBStreamsArn(originalArn, false);
+        String reconstructedArn = KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(streamIdentifier);
+
+        Assertions.assertEquals(originalArn, reconstructedArn);
+
+        String usGovArn = "arn:aws-us-gov:dynamodb:us-gov-east-1:123456789012:table/TestTable/stream/2024-02-03T00:00:00.000";
+        String usGovStreamIdentifier = KinesisMapperUtil.createKinesisStreamIdentifierFromDynamoDBStreamsArn(usGovArn, false);
+        String usGovReconstructedArn = KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(usGovStreamIdentifier);
+        Assertions.assertEquals(usGovArn, usGovReconstructedArn);
     }
 
     @Test
