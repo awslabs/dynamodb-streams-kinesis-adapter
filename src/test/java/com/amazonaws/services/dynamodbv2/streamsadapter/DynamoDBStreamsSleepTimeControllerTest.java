@@ -14,11 +14,13 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.*;
 import org.junit.Test;
 import org.junit.Before;
 import software.amazon.kinesis.retrieval.polling.SleepTimeControllerConfig;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -111,5 +113,69 @@ public class DynamoDBStreamsSleepTimeControllerTest {
         long sleepTime2 = controller.getSleepTimeMillis(sleepTimeControllerConfig);
         // Both should be approximately the same
         assertEquals(sleepTime1, sleepTime2, 100);
+    }
+
+    @Test
+    public void testCatchUpModeActivation() {
+        DynamoDBStreamsClientSideCatchUpConfig config = new DynamoDBStreamsClientSideCatchUpConfig()
+                .enabled(true)
+                .scalingFactor(2);
+
+        DynamoDBStreamsSleepTimeController catchUpController =
+                new DynamoDBStreamsSleepTimeController(config);
+
+        SleepTimeControllerConfig sleepConfig = SleepTimeControllerConfig.builder()
+                .idleMillisBetweenCalls(IDLE_MILLIS)
+                .lastMillisBehindLatest(Duration.ofMinutes(10).toMillis()) // Above 5min threshold
+                .lastSuccessfulCall(null) // No previous call
+                .lastRecordsCount(5)
+                .build();
+
+        long sleepTime = catchUpController.getSleepTimeMillis(sleepConfig);
+        assertEquals(500L, sleepTime); // 1000ms / 2 = 500ms (2x faster)
+    }
+
+    @Test
+    public void testCatchUpModeDisabled() {
+        DynamoDBStreamsClientSideCatchUpConfig config = new DynamoDBStreamsClientSideCatchUpConfig(); // disabled by default
+
+        DynamoDBStreamsSleepTimeController catchUpController =
+                new DynamoDBStreamsSleepTimeController(config);
+
+        SleepTimeControllerConfig sleepConfig = SleepTimeControllerConfig.builder()
+                .idleMillisBetweenCalls(IDLE_MILLIS)
+                .lastMillisBehindLatest(Duration.ofMinutes(10).toMillis())
+                .lastSuccessfulCall(null) // No previous call
+                .lastRecordsCount(5)
+                .build();
+
+        long sleepTime = catchUpController.getSleepTimeMillis(sleepConfig);
+        assertEquals(IDLE_MILLIS, sleepTime); // Normal behavior: full idle time
+    }
+
+    @Test
+    public void testCatchUpModeWithInvalidScalingFactor() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new DynamoDBStreamsClientSideCatchUpConfig().scalingFactor(0);
+        });
+        
+        assertThrows(IllegalArgumentException.class, () -> {
+            new DynamoDBStreamsClientSideCatchUpConfig().scalingFactor(-1);
+        });
+    }
+
+    @Test
+    public void testCatchUpModeWithInvalidThreshold() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            new DynamoDBStreamsClientSideCatchUpConfig().millisBehindLatestThreshold(null);
+        });
+        
+        assertThrows(IllegalArgumentException.class, () -> {
+            new DynamoDBStreamsClientSideCatchUpConfig().millisBehindLatestThreshold(Duration.ZERO);
+        });
+        
+        assertThrows(IllegalArgumentException.class, () -> {
+            new DynamoDBStreamsClientSideCatchUpConfig().millisBehindLatestThreshold(Duration.ofMinutes(-5));
+        });
     }
 }

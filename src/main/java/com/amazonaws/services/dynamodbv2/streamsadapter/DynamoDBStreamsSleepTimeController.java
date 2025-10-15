@@ -16,17 +16,33 @@ package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import software.amazon.kinesis.retrieval.polling.SleepTimeController;
 import software.amazon.kinesis.retrieval.polling.SleepTimeControllerConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
 import java.time.Duration;
 import java.time.Instant;
 
 @SuppressWarnings("checkstyle:AvoidInlineConditionals")
 public class DynamoDBStreamsSleepTimeController implements SleepTimeController {
 
+    private final DynamoDBStreamsClientSideCatchUpConfig catchUpConfig;
+
+    public DynamoDBStreamsSleepTimeController() {
+        this.catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+    }
+
+    public DynamoDBStreamsSleepTimeController(DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+        this.catchUpConfig = catchUpConfig != null ? catchUpConfig : new DynamoDBStreamsClientSideCatchUpConfig();
+    }
+
     @Override
     public long getSleepTimeMillis(SleepTimeControllerConfig sleepTimeControllerConfig) {
         long idleMillsBetweenCalls = sleepTimeControllerConfig.idleMillisBetweenCalls();
-        Instant lastSuccessfulCall = sleepTimeControllerConfig.lastSuccessfulCall();
 
+        // Apply catch-up mode if needed
+        if (shouldEnterCatchUpMode(sleepTimeControllerConfig)) {
+            idleMillsBetweenCalls = idleMillsBetweenCalls / catchUpConfig.scalingFactor();
+        }
+
+        Instant lastSuccessfulCall = sleepTimeControllerConfig.lastSuccessfulCall();
         Integer lastGetRecordsReturnedRecordsCount = sleepTimeControllerConfig.lastRecordsCount();
 
         if (lastSuccessfulCall == null || lastGetRecordsReturnedRecordsCount == null) {
@@ -38,5 +54,11 @@ public class DynamoDBStreamsSleepTimeController implements SleepTimeController {
             return sleepTime - timeSinceLastCall;
         }
         return 0;
+    }
+
+    private boolean shouldEnterCatchUpMode(SleepTimeControllerConfig config) {
+        return catchUpConfig.enabled()
+                && config.lastMillisBehindLatest() != null
+                && config.lastMillisBehindLatest() > catchUpConfig.millisBehindLatestThreshold().toMillis();
     }
 }
