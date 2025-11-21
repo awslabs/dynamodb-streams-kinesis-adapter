@@ -14,6 +14,7 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
 import com.amazonaws.services.dynamodbv2.streamsadapter.processor.DynamoDBStreamsShardRecordProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import software.amazon.awssdk.regions.Region;
 import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsClient;
 import software.amazon.kinesis.common.ConfigsBuilder;
 import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
@@ -71,6 +73,9 @@ class StreamsSchedulerFactoryTest {
 
     @Mock
     private DynamoDbAsyncClient dynamoDbAsyncClient;
+
+    @Mock
+    private DynamoDbStreamsClient dynamoDbStreamsClient;
 
     private Region region = Region.US_WEST_2;
 
@@ -427,5 +432,121 @@ class StreamsSchedulerFactoryTest {
                 )
         );
         assertEquals("initialPositionInStreamExtended is marked non-null but is null", exception.getMessage());
+    }
+
+    @Test
+    void testCreateSchedulerWithCatchUpConfig() {
+        ConfigsBuilder configsBuilder = new ConfigsBuilder(
+                VALID_STREAM_ARN,
+                APP_NAME,
+                amazonDynamoDBStreamsAdapterClient,
+                dynamoDbAsyncClient,
+                cloudWatchAsyncClient,
+                WORKER_ID,
+                shardRecordProcessorFactory);
+        
+        DynamoDBStreamsClientSideCatchUpConfig catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        
+        Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
+                configsBuilder.checkpointConfig(),
+                configsBuilder.coordinatorConfig(),
+                configsBuilder.leaseManagementConfig(),
+                configsBuilder.lifecycleConfig(),
+                configsBuilder.metricsConfig(),
+                configsBuilder.processorConfig(),
+                retrievalConfig,
+                credentialsProvider,
+                region,
+                catchUpConfig
+        );
+
+        assertNotNull(scheduler);
+        assertTrue(scheduler.coordinatorConfig().skipShardSyncAtWorkerInitializationIfLeasesExist());
+    }
+
+    @Test
+    void testCreateSchedulerWithAdapterClientAndCatchUpConfig() {
+        ConfigsBuilder configsBuilder = new ConfigsBuilder(
+                VALID_STREAM_ARN,
+                APP_NAME,
+                amazonDynamoDBStreamsAdapterClient,
+                dynamoDbAsyncClient,
+                cloudWatchAsyncClient,
+                WORKER_ID,
+                shardRecordProcessorFactory);
+        
+        DynamoDBStreamsClientSideCatchUpConfig catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        
+        Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
+                configsBuilder.checkpointConfig(),
+                configsBuilder.coordinatorConfig(),
+                configsBuilder.leaseManagementConfig(),
+                configsBuilder.lifecycleConfig(),
+                configsBuilder.metricsConfig(),
+                configsBuilder.processorConfig(),
+                retrievalConfig,
+                amazonDynamoDBStreamsAdapterClient,
+                catchUpConfig
+        );
+
+        assertNotNull(scheduler);
+        assertTrue(scheduler.coordinatorConfig().skipShardSyncAtWorkerInitializationIfLeasesExist());
+    }
+
+    @Test
+    void testCreateSchedulerWithDynamoDbStreamsClientAndCatchUpConfig() {
+        ConfigsBuilder configsBuilder = new ConfigsBuilder(
+                VALID_STREAM_ARN,
+                APP_NAME,
+                amazonDynamoDBStreamsAdapterClient,
+                dynamoDbAsyncClient,
+                cloudWatchAsyncClient,
+                WORKER_ID,
+                shardRecordProcessorFactory);
+        
+        DynamoDBStreamsClientSideCatchUpConfig catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        
+        Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
+                configsBuilder.checkpointConfig(),
+                configsBuilder.coordinatorConfig(),
+                configsBuilder.leaseManagementConfig(),
+                configsBuilder.lifecycleConfig(),
+                configsBuilder.metricsConfig(),
+                configsBuilder.processorConfig(),
+                retrievalConfig,
+                dynamoDbStreamsClient,
+                region,
+                catchUpConfig
+        );
+
+        assertNotNull(scheduler);
+        assertTrue(scheduler.coordinatorConfig().skipShardSyncAtWorkerInitializationIfLeasesExist());
+    }
+
+    @Test
+    void testCreateSchedulerWithDynamoDbStreamsClient() {
+        ConfigsBuilder configsBuilder = new ConfigsBuilder(
+                VALID_STREAM_ARN,
+                APP_NAME,
+                amazonDynamoDBStreamsAdapterClient,
+                dynamoDbAsyncClient,
+                cloudWatchAsyncClient,
+                WORKER_ID,
+                shardRecordProcessorFactory);
+        
+        Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
+                configsBuilder.checkpointConfig(),
+                configsBuilder.coordinatorConfig(),
+                configsBuilder.leaseManagementConfig(),
+                configsBuilder.lifecycleConfig(),
+                configsBuilder.metricsConfig(),
+                configsBuilder.processorConfig(),
+                retrievalConfig,
+                dynamoDbStreamsClient,
+                region
+        );
+
+        assertNotNull(scheduler);
+        assertTrue(scheduler.coordinatorConfig().skipShardSyncAtWorkerInitializationIfLeasesExist());
     }
 }

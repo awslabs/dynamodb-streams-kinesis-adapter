@@ -15,6 +15,7 @@
 
 package com.amazonaws.services.dynamodbv2.streamsadapter.common;
 
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.ApiName;
@@ -73,6 +74,17 @@ public final class DynamoDBStreamsRequestsBuilder {
     }
 
     /**
+     * Creates a builder for GetRecords request with user agent and catch-up config information.
+     *
+     * @param consumerId Consumer identifier
+     * @param config DynamoDB Streams client-side catch-up configuration
+     * @return GetRecordsRequest builder with user agent configuration including catch-up config
+     */
+    public static GetRecordsRequest.Builder getRecordsRequestBuilder(String consumerId, DynamoDBStreamsClientSideCatchUpConfig config) {
+        return appendUserAgentWithCatchUpConfig(GetRecordsRequest.builder(), consumerId, config);
+    }
+
+    /**
      * Creates a builder for GetShardIterator request with user agent information.
      *
      * @return GetShardIteratorRequest builder with user agent configuration
@@ -123,6 +135,23 @@ public final class DynamoDBStreamsRequestsBuilder {
         return (T) builder.overrideConfiguration(AwsRequestOverrideConfiguration.builder()
                 .addApiName(ApiName.builder()
                         .name(String.format("%s-%s", consumerId, RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT))
+                        .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
+                        .build())
+                .build());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends AwsRequest.Builder> T appendUserAgentWithCatchUpConfig(final T builder, String consumerId, DynamoDBStreamsClientSideCatchUpConfig config) {
+        String userAgentName = String.format("%s catchup#%d-T#%s-S#%d %s",
+            consumerId,
+            config.catchupEnabled() ? 1 : 0,
+            config.millisBehindLatestThreshold().toMillis(),
+            config.scalingFactor(),
+            RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT);
+        
+        return (T) builder.overrideConfiguration(AwsRequestOverrideConfiguration.builder()
+                .addApiName(ApiName.builder()
+                        .name(userAgentName)
                         .version(RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT_VERSION)
                         .build())
                 .build());
