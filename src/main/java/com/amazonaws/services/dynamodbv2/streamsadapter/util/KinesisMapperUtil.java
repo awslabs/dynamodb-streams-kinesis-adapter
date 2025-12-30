@@ -55,6 +55,13 @@ public final class KinesisMapperUtil {
 
     private static final String SHARD_ID_SEPARATOR = "-";
     private static Set<Region> awsRegions = new HashSet<>(Region.regions());
+    
+    /**
+     * Add ddblocal to support streams on DynamoDB Local.
+     */
+    static {
+        awsRegions.add(Region.of("ddblocal"));
+    }
 
     /**
      * All the shard-leases should stay retained for at least 6 hours in the lease table.
