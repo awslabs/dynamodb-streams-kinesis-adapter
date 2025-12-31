@@ -55,7 +55,8 @@ public final class KinesisMapperUtil {
     private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
     private static final String SHARD_ID_SEPARATOR = "-";
-    private static final Set<Region> AWS_REGIONS;    static {
+    private static final Set<Region> AWS_REGIONS;
+    static {
         Set<Region> regions = new HashSet<>(Region.regions());
         regions.add(Region.of("ddblocal"));
         AWS_REGIONS = Collections.unmodifiableSet(regions);
