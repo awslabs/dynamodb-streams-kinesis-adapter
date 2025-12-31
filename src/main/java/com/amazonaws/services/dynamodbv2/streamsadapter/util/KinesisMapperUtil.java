@@ -210,7 +210,7 @@ public final class KinesisMapperUtil {
             throw new IllegalArgumentException("Invalid DynamoDB stream ARN format: " + streamNameToUse);
         }
 
-        String arnPartition = awsRegion.metadata().partition().id();
+        String arnPartition = "ddblocal".equals(region) ? "aws" : awsRegion.metadata().partition().id();
         String dynamoDBStreamArn = String.format("arn:%s:dynamodb:%s:%s:table/%s/stream/%s",
                 arnPartition, region, accountId, tableName, streamLabel);
         if (!isValidDynamoDBStreamArn(dynamoDBStreamArn)) {
