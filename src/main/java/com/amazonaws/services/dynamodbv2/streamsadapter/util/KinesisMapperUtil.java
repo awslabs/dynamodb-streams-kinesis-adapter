@@ -30,6 +30,7 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -54,13 +55,10 @@ public final class KinesisMapperUtil {
     private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
     private static final String SHARD_ID_SEPARATOR = "-";
-    private static Set<Region> awsRegions = new HashSet<>(Region.regions());
-    
-    /**
-     * Add ddblocal to support streams on DynamoDB Local.
-     */
-    static {
-        awsRegions.add(Region.of("ddblocal"));
+    private static final Set<Region> AWS_REGIONS;    static {
+        Set<Region> regions = new HashSet<>(Region.regions());
+        regions.add(Region.of("ddblocal"));
+        AWS_REGIONS = Collections.unmodifiableSet(regions);
     }
 
     /**
@@ -206,7 +204,7 @@ public final class KinesisMapperUtil {
         String streamLabel = parts[3].replace(COLON_REPLACEMENT, ":");
         Region awsRegion = Region.of(region);
 
-        if (!awsRegions.contains(awsRegion)) {
+        if (!AWS_REGIONS.contains(awsRegion)) {
             throw new IllegalArgumentException("Invalid DynamoDB stream ARN format: " + streamNameToUse);
         }
 
