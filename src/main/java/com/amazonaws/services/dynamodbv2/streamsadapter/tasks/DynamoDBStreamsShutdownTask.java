@@ -18,7 +18,10 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilterType;
 import software.amazon.awssdk.services.kinesis.model.ChildShard;
+import software.amazon.awssdk.services.kinesis.model.Shard;
+import software.amazon.awssdk.services.kinesis.model.ShardFilter;
 import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.checkpoint.ShardRecordProcessorCheckpointer;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
@@ -28,6 +31,7 @@ import software.amazon.kinesis.leases.Lease;
 import software.amazon.kinesis.leases.LeaseCleanupManager;
 import software.amazon.kinesis.leases.LeaseCoordinator;
 import software.amazon.kinesis.leases.LeaseRefresher;
+import software.amazon.kinesis.leases.MultiStreamLease;
 import software.amazon.kinesis.leases.ShardDetector;
 import software.amazon.kinesis.leases.ShardInfo;
 import software.amazon.kinesis.leases.UpdateField;
@@ -231,8 +235,64 @@ public class DynamoDBStreamsShutdownTask implements ConsumerTask {
         if (!CollectionUtils.isNullOrEmpty(childShards)) {
             createLeasesForChildShardsIfNotExist(scope);
             updateLeaseWithChildShards(currentShardLease);
+            log.debug("Child leases created when shard {} reached its end", leaseKey);
         }
         attemptShardEndCheckpointing(leaseKey, scope, startTime);
+
+        // At this point, child lease has already been created for uninterrupted data processing.
+        // Now backfill child-shard-ids to fulfil cleanup conditions.
+        fetchChildShardsForCompleteLineage(currentShardLease);
+    }
+
+
+    /**
+     * Backfills child-shard-ids in ancestor leases that are missing them. This handles cases where
+     * child-shard-ids were not populated during shard-end processing — for example, when migrating
+     * from KCLv1 to KCLv3, or lease update with child-shard-ids failed.
+     * This method walks up the parent chain recursively, to fetch and persist
+     * child-shard-ids for each parent lease, until it encounters a parent that already has
+     * child-shard-ids populated or has no further parent leases.
+     *
+     * @param currentShardLease the lease whose parent lineage will be backfilled with child-shard-ids
+     */
+    private void fetchChildShardsForCompleteLineage(Lease currentShardLease) {
+        Set<String> parentShardIds = currentShardLease.parentShardIds();
+        if (parentShardIds == null || parentShardIds.isEmpty()) {
+            return;
+        }
+        for (String parentShardId : parentShardIds) {
+            try {
+                String parentLeaseKey = currentShardLease instanceof MultiStreamLease
+                        ? MultiStreamLease.getLeaseKey(((MultiStreamLease) currentShardLease).streamIdentifier(),
+                        parentShardId)
+                        : parentShardId;
+                Lease parentLease = leaseCoordinator.leaseRefresher().getLease(parentLeaseKey);
+                if (parentLease == null) {
+                    continue;
+                }
+                if (!CollectionUtils.isNullOrEmpty(parentLease.childShardIds())) {
+                    continue; // already backfilled, lineage above is complete
+                }
+                ShardFilter shardFilter = ShardFilter.builder()
+                        .type(ShardFilterType.CHILD_SHARDS.toString())
+                        .shardId(parentShardId)
+                        .build();
+                List<Shard> fetchedChildShards = dynamoDBStreamsShardDetector.listShardsWithFilter(
+                        shardFilter, leaseCoordinator.leaseRefresher().getLeaseTableIdentifier());
+                if (fetchedChildShards != null && !fetchedChildShards.isEmpty()) {
+                    Set<String> childShardIds = fetchedChildShards.stream()
+                            .map(Shard::shardId)
+                            .collect(Collectors.toSet());
+                    Lease updatedLease = parentLease.copy();
+                    updatedLease.childShardIds(childShardIds);
+                    leaseCoordinator.leaseRefresher().updateLeaseWithMetaInfo(updatedLease, UpdateField.CHILD_SHARDS);
+                    log.info("Updated parent lease {} with child shard ids: {}", parentShardId, childShardIds);
+                }
+                fetchChildShardsForCompleteLineage(parentLease);
+            } catch (Exception e) {
+                log.error("Error in lineage completion for parent shard {}", parentShardId, e);
+            }
+        }
     }
 
     private boolean attemptShardEndCheckpointing(final String leaseKey, MetricsScope scope, long startTime)

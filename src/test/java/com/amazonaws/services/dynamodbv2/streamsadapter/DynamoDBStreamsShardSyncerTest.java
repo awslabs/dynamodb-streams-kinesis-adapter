@@ -905,13 +905,18 @@ public class DynamoDBStreamsShardSyncerTest {
 
         List<Shard> currentShards = Arrays.asList(grandparent, parent, child1, child2, independent);
 
+        Set<String> childShardIds = new HashSet<>();
+        childShardIds.add(child1ShardId);
+        childShardIds.add(child2ShardId);
+
         // Setup existing leases in the lease table
         // 1. Active shard lease from current stream
         MultiStreamLease currentActiveLease = createTestLease(
                 currentStreamName,
                 child1ShardId,
                 ExtendedSequenceNumber.TRIM_HORIZON,
-                parentShardId
+                parentShardId,
+                childShardIds
         );
 
         // 2. Stale shard lease from current stream (should be deleted)
@@ -919,6 +924,7 @@ public class DynamoDBStreamsShardSyncerTest {
                 currentStreamName,
                 staleShardId,
                 ExtendedSequenceNumber.SHARD_END,
+                null,
                 null
         );
 
@@ -927,6 +933,7 @@ public class DynamoDBStreamsShardSyncerTest {
                 otherStreamName,
                 "shardId-000000000000000000007-other",
                 ExtendedSequenceNumber.TRIM_HORIZON,
+                null,
                 null
         );
 
@@ -980,25 +987,35 @@ public class DynamoDBStreamsShardSyncerTest {
         Shard grandChild2 = createTestShard(grandChild2ShardId, child2ShardId, null, "201", null);  // open
         List<Shard> currentShards = Arrays.asList(parent, child1, child2, grandChild1, grandChild2);
 
+        Set<String> childShardIds = new HashSet<>();
+        childShardIds.add(child1ShardId);
+        childShardIds.add(child2ShardId);
         // Setup leases for stream1 (current stream)
         // Parent lease - completed
         Lease parentLease = createCompletedLease(
                 MULTI_STREAM_NAME,
                 parentShardId,
-                null  // no parent
+                null,  // no parent,
+                childShardIds
         );
 
+        Set<String> grandChildIds = new HashSet<>();
+        grandChildIds.add(grandChild1ShardId);
         // Child leases - both completed
         Lease child1Lease = createCompletedLease(
                 MULTI_STREAM_NAME,
                 child1ShardId,
-                parentShardId
+                parentShardId,
+                grandChildIds
         );
+        grandChildIds.remove(grandChild1ShardId);
+        grandChildIds.add(grandChild2ShardId);
 
         Lease child2Lease = createCompletedLease(
                 MULTI_STREAM_NAME,
                 child2ShardId,
-                parentShardId
+                parentShardId,
+                grandChildIds
         );
 
         // Grandchild leases - both active at TRIM_HORIZON
@@ -1006,14 +1023,16 @@ public class DynamoDBStreamsShardSyncerTest {
                 MULTI_STREAM_NAME,
                 grandChild1ShardId,
                 ExtendedSequenceNumber.TRIM_HORIZON,  // active lease
-                child1ShardId
+                child1ShardId,
+                null
         );
 
         Lease grandChild2Lease = createTestLease(
                 MULTI_STREAM_NAME,
                 grandChild2ShardId,
-                ExtendedSequenceNumber.TRIM_HORIZON,  // active lease
-                child2ShardId
+                ExtendedSequenceNumber.SHARD_END,  // active lease
+                child2ShardId,
+                null
         );
 
         // Setup current stream leases
@@ -1049,9 +1068,10 @@ public class DynamoDBStreamsShardSyncerTest {
         // Should delete parent lease since all its children are at SHARD_END and have active children
         verify(leaseRefresher).deleteLease(parentLease);
 
-        // Should NOT delete child leases since they have active children
+        // Should not delete child leases since they have children with seq number at TRIM_HORIZON
         verify(leaseRefresher, never()).deleteLease(child1Lease);
-        verify(leaseRefresher, never()).deleteLease(child2Lease);
+        // Should delete child leases since they have children with seq number at SHARD_END
+        verify(leaseRefresher, times(1)).deleteLease(child2Lease);
 
         // Should NOT delete grandchild leases since they're active
         verify(leaseRefresher, never()).deleteLease(grandChild1Lease);
@@ -1100,25 +1120,41 @@ public class DynamoDBStreamsShardSyncerTest {
                 childShard1, childShard2, childShard3, childShard4
         );
 
+        Set<String> grandParentChildShardIds = new HashSet<>();
+        grandParentChildShardIds.add(parentShardId1);
+        grandParentChildShardIds.add(parentShardId2);
+
         // Setup leases
         // Grandparent lease - completed
         MultiStreamLease grandparentLease = createCompletedLease(
                 streamName,
                 grandparentShardId,
-                null  // no parent
+                null,  // no parent
+                grandParentChildShardIds
         );
+
+        Set<String> childShardIds = new HashSet<>();
+        childShardIds.add(childShardId1);
+        childShardIds.add(childShardId2);
 
         // Parent leases - all completed
         MultiStreamLease parentLease1 = createCompletedLease(
                 streamName,
                 parentShardId1,
-                grandparentShardId
+                grandparentShardId,
+                childShardIds
         );
+
+        childShardIds.remove(childShardId1);
+        childShardIds.remove(childShardId2);
+        childShardIds.add(childShardId3);
+        childShardIds.add(childShardId4);
 
         MultiStreamLease parentLease2 = createCompletedLease(
                 streamName,
                 parentShardId2,
-                grandparentShardId
+                grandparentShardId,
+                childShardIds
         );
 
         // Child leases - all still active
@@ -1182,21 +1218,20 @@ public class DynamoDBStreamsShardSyncerTest {
         assertTrue(result);
 
         // Verify lease deletion behavior
-        // Grandparent lease should not be deleted because:
-        // 1. It's too recent (30 minutes < 6 hours)
-        // 2. Its children (parents) are still being processed
-        verify(leaseRefresher, never()).deleteLease(grandparentLease);
+        // Grandparent lease should be deleted because:
+        // 1. processing of the lease is over and,
+        // 2. Its children (parents) have begun processing
+        verify(leaseRefresher, times(1)).deleteLease(grandparentLease);
 
-        // Parent leases should not be deleted because:
-        // 1. They're even more recent than grandparent
-        // 2. Their children (leaf nodes) are still being processed
-        verify(leaseRefresher, never()).deleteLease(parentLease1);
-        verify(leaseRefresher, never()).deleteLease(parentLease2);
+        // Parent leases should be deleted because:
+        // 1. processing of the lease is over and,
+        // 2. Their children (leaf nodes) have begun processing
+        verify(leaseRefresher, times(1)).deleteLease(parentLease1);
+        verify(leaseRefresher, times(1)).deleteLease(parentLease2);
 
         // Child leases should not be deleted because:
-        // 1. They're the most recent
-        // 2. They're still actively processing (not at SHARD_END)
-        // 3. They're open shards (no ending sequence number)
+        // 1. They're still actively processing (not at SHARD_END)
+        // 2. They're open shards (no ending sequence number)
         verify(leaseRefresher, never()).deleteLease(childLease1);
         verify(leaseRefresher, never()).deleteLease(childLease2);
         verify(leaseRefresher, never()).deleteLease(childLease3);
@@ -1236,25 +1271,41 @@ public class DynamoDBStreamsShardSyncerTest {
                 childShard1, childShard2, childShard3, childShard4
         );
 
+        Set<String> grandParentChildShardIds = new HashSet<>();
+        grandParentChildShardIds.add(parentShardId1);
+        grandParentChildShardIds.add(parentShardId2);
+
         // Setup leases
         // Grandparent lease - old and completed
         MultiStreamLease grandparentLease = createCompletedLease(
                 MULTI_STREAM_NAME,
                 grandparentShardId,
-                null  // no parent
+                null,  // no parent
+                grandParentChildShardIds
         );
+
+        Set<String> childShardIds = new HashSet<>();
+        childShardIds.add(childShardId1);
+        childShardIds.add(childShardId2);
 
         // Parent leases - all completed but not old enough
         MultiStreamLease parentLease1 = createCompletedLease(
                 MULTI_STREAM_NAME,
                 parentShardId1,
-                grandparentShardId
+                grandparentShardId,
+                childShardIds
         );
+
+        childShardIds.remove(childShardId1);
+        childShardIds.remove(childShardId2);
+        childShardIds.add(childShardId3);
+        childShardIds.add(childShardId4);
 
         MultiStreamLease parentLease2 = createCompletedLease(
                 MULTI_STREAM_NAME,
                 parentShardId2,
-                grandparentShardId
+                grandparentShardId,
+                childShardIds
         );
 
         // Child leases - still active
@@ -1318,18 +1369,17 @@ public class DynamoDBStreamsShardSyncerTest {
         assertTrue(result);
 
         // Verify only grandparent lease is deleted because:
-        // 1. It's old enough (7 hours > 6 hours)
+        // 1. Lease processing is complete and
         // 2. All its children (parents) are at SHARD_END
         verify(leaseRefresher, times(1)).deleteLease(grandparentLease);
 
-        // Parent leases should not be deleted because they're not old enough
-        verify(leaseRefresher, never()).deleteLease(parentLease1);
-        verify(leaseRefresher, never()).deleteLease(parentLease2);
+        // Parent leases should be deleted because lease processing is complete
+        verify(leaseRefresher, times(1)).deleteLease(parentLease1);
+        verify(leaseRefresher, times(1)).deleteLease(parentLease2);
 
         // Child leases should not be deleted because:
-        // 1. They're recent
-        // 2. They're still processing (not at SHARD_END)
-        // 3. They're open shards
+        // 1. They're still processing (not at SHARD_END)
+        // 2. They're open shards
         verify(leaseRefresher, never()).deleteLease(childLease1);
         verify(leaseRefresher, never()).deleteLease(childLease2);
         verify(leaseRefresher, never()).deleteLease(childLease3);
@@ -1369,19 +1419,29 @@ public class DynamoDBStreamsShardSyncerTest {
                 childShard1, childShard2, childShard3, childShard4
         );
 
+        Set<String> grandParentChildShardIds = new HashSet<>();
+        grandParentChildShardIds.add(parentShardId1);
+        grandParentChildShardIds.add(parentShardId2);
+
         // Setup leases
         // Grandparent lease - old enough but won't be deleted due to active child
         MultiStreamLease grandparentLease = createCompletedLease(
                 MULTI_STREAM_NAME,
                 grandparentShardId,
-                null  // no parent
+                null,  // no parent
+                grandParentChildShardIds
         );
+
+        Set<String> childShardIds = new HashSet<>();
+        childShardIds.add(childShardId1);
+        childShardIds.add(childShardId2);
 
         // Parent leases - one completed, one still processing
         MultiStreamLease parentLease1 = createCompletedLease(
                 MULTI_STREAM_NAME,
                 parentShardId1,
-                grandparentShardId
+                grandparentShardId,
+                childShardIds
         );
 
         MultiStreamLease parentLease2 = createActiveLease(
@@ -1452,13 +1512,14 @@ public class DynamoDBStreamsShardSyncerTest {
 
         assertTrue(result);
 
-        // Verify grandparent lease is NOT deleted because:
-        // 1. Although it's old enough (7 hours > 6 hours)
-        // 2. One of its children (parentLease2) is still processing
-        verify(leaseRefresher, never()).deleteLease(grandparentLease);
+        // Verify grandparent lease is deleted because:
+        // 1. processing is complete and
+        // 2. One of its children (parentLease2) is being processed
+        verify(leaseRefresher, times(1)).deleteLease(grandparentLease);
 
-        // Parent leases should not be deleted
-        verify(leaseRefresher, never()).deleteLease(parentLease1);  // Not old enough
+        // Parent leases should be deleted as the lease is completed
+        verify(leaseRefresher, times(1)).deleteLease(parentLease1);  // Not old enough
+        // Parent leases should be deleted as it is active lease
         verify(leaseRefresher, never()).deleteLease(parentLease2);  // Still processing
 
         // Child leases should not be deleted
@@ -1468,7 +1529,7 @@ public class DynamoDBStreamsShardSyncerTest {
         verify(leaseRefresher, never()).deleteLease(childLease4);
 
         // Additional verification that no other leases were deleted
-        verify(leaseRefresher, never()).deleteLease(any());
+        verify(leaseRefresher, times(2)).deleteLease(any());
     }
     
     /**
@@ -1493,25 +1554,32 @@ public class DynamoDBStreamsShardSyncerTest {
 
         List<Shard> currentShards = Arrays.asList(parentShard, childShard1, childShard2);
 
+        Set<String> childShardIds = new HashSet<>();
+        childShardIds.add(childShardId1);
+        childShardIds.add(childShardId2);
+
         // Setup leases
         // Parent lease at SHARD_END and old enough to be deleted
         Lease parentLease = createCompletedLease(
                 MULTI_STREAM_NAME,
                 parentShardId,
-                null  // no parent
+                null,  // no parent
+                childShardIds
         );
 
         // Child leases - both at SHARD_END
         Lease childLease1 = createCompletedLease(
                 MULTI_STREAM_NAME,
                 childShardId1,
-                parentShardId
+                parentShardId,
+                null
         );
 
         Lease childLease2 = createCompletedLease(
                 MULTI_STREAM_NAME,
                 childShardId2,
-                parentShardId
+                parentShardId,
+                null
         );
         StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
         DynamoDBStreamsShardSyncer shardSyncer = new DynamoDBStreamsShardSyncer(true, MULTI_STREAM_NAME, false, streamInfoManagerMock);
@@ -1537,9 +1605,79 @@ public class DynamoDBStreamsShardSyncerTest {
         assertTrue(result);
 
         // Verify no leases are deleted even though all conditions for deletion are met:
-        // 1. Parent is old enough (7 hours > 6 hours)
-        // 2. All child shards are at SHARD_END
-        // 3. But cleanupLeasesOfCompletedShards is false
+        // 1. All child shards are at SHARD_END
+        // 2. But cleanupLeasesOfCompletedShards is false
         verify(leaseRefresher, never()).deleteLease(any());
+    }
+
+    @Test
+    void testChildLeaseNotDeletedBeforeParentLease() throws Exception {
+        // Setup: parent and child both at SHARD_END with childShardIds set,
+        // but parent should be deleted before child due to ordering check.
+        long baseTimestamp = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String parentShardId = String.format("shardId-%019d-001", baseTimestamp);
+        String childShardId = String.format("shardId-%019d-002", baseTimestamp + 1000);
+        String grandchildShardId = String.format("shardId-%019d-003", baseTimestamp + 2000);
+
+        Shard parentShard = createTestShard(parentShardId, null, null, "0", "100");
+        Shard childShard = createTestShard(childShardId, parentShardId, null, "101", "200");
+        Shard grandchildShard = createTestShard(grandchildShardId, childShardId, null, "201", null);
+
+        List<Shard> currentShards = Arrays.asList(parentShard, childShard, grandchildShard);
+
+        // Parent lease - completed, has child shard ids
+        MultiStreamLease parentLease = createCompletedLease(
+                MULTI_STREAM_NAME,
+                parentShardId,
+                null,
+                Collections.singleton(childShardId)
+        );
+
+        // Child lease - completed, has child shard ids
+        MultiStreamLease childLease = createCompletedLease(
+                MULTI_STREAM_NAME,
+                childShardId,
+                parentShardId,
+                Collections.singleton(grandchildShardId)
+        );
+
+        // Grandchild lease - active, past TRIM_HORIZON
+        MultiStreamLease grandchildLease = createActiveLease(
+                MULTI_STREAM_NAME,
+                grandchildShardId,
+                "201",
+                childShardId
+        );
+
+        List<Lease> streamLeases = Arrays.asList(parentLease, childLease, grandchildLease);
+
+        when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
+        when(shardDetector.listShards(anyString())).thenReturn(currentShards);
+        when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(streamLeases);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
+
+        DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
+                true, MULTI_STREAM_NAME, true, streamInfoManagerMock);
+
+        boolean result = multiStreamSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher,
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON),
+                metricsScope, false, true);
+
+        assertTrue(result);
+
+        // Parent should be deleted (no parent of its own to wait for)
+        verify(leaseRefresher, times(1)).deleteLease(parentLease);
+        // Child should be deleted (parent was deleted first in same cycle, added to deletedLeases)
+        verify(leaseRefresher, times(1)).deleteLease(childLease);
+        // Grandchild should NOT be deleted (still active)
+        verify(leaseRefresher, never()).deleteLease(grandchildLease);
+
+        // Verify ordering: exactly 2 deletes, parent before child
+        ArgumentCaptor<Lease> deleteCaptor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(2)).deleteLease(deleteCaptor.capture());
+        List<Lease> deletedInOrder = deleteCaptor.getAllValues();
+        assertEquals(parentLease.leaseKey(), deletedInOrder.get(0).leaseKey());
+        assertEquals(childLease.leaseKey(), deletedInOrder.get(1).leaseKey());
     }
 }
