@@ -1028,9 +1028,9 @@ public class DynamoDBStreamsShardSyncerTest {
         // Should delete parent lease since all its children are at SHARD_END and have active children
         verify(leaseRefresher).deleteLease(parentLease);
 
-        // Should NOT delete child leases since they have active children
-        verify(leaseRefresher, never()).deleteLease(child1Lease);
-        verify(leaseRefresher, never()).deleteLease(child2Lease);
+        // Should delete child leases since they have active children
+        verify(leaseRefresher, times(1)).deleteLease(child1Lease);
+        verify(leaseRefresher, times(1)).deleteLease(child2Lease);
 
         // Should NOT delete grandchild leases since they're active
         verify(leaseRefresher, never()).deleteLease(grandChild1Lease);
@@ -1159,21 +1159,20 @@ public class DynamoDBStreamsShardSyncerTest {
         assertTrue(result);
 
         // Verify lease deletion behavior
-        // Grandparent lease should not be deleted because:
-        // 1. It's too recent (30 minutes < 6 hours)
-        // 2. Its children (parents) are still being processed
-        verify(leaseRefresher, never()).deleteLease(grandparentLease);
+        // Grandparent lease should be deleted because:
+        // 1. processing of the lease is over and,
+        // 2. Its children (parents) have begun processing
+        verify(leaseRefresher, times(1)).deleteLease(grandparentLease);
 
-        // Parent leases should not be deleted because:
-        // 1. They're even more recent than grandparent
-        // 2. Their children (leaf nodes) are still being processed
-        verify(leaseRefresher, never()).deleteLease(parentLease1);
-        verify(leaseRefresher, never()).deleteLease(parentLease2);
+        // Parent leases should be deleted because:
+        // 1. processing of the lease is over and,
+        // 2. Their children (leaf nodes) have begun processing
+        verify(leaseRefresher, times(1)).deleteLease(parentLease1);
+        verify(leaseRefresher, times(1)).deleteLease(parentLease2);
 
         // Child leases should not be deleted because:
-        // 1. They're the most recent
-        // 2. They're still actively processing (not at SHARD_END)
-        // 3. They're open shards (no ending sequence number)
+        // 1. They're still actively processing (not at SHARD_END)
+        // 2. They're open shards (no ending sequence number)
         verify(leaseRefresher, never()).deleteLease(childLease1);
         verify(leaseRefresher, never()).deleteLease(childLease2);
         verify(leaseRefresher, never()).deleteLease(childLease3);
@@ -1293,18 +1292,17 @@ public class DynamoDBStreamsShardSyncerTest {
         assertTrue(result);
 
         // Verify only grandparent lease is deleted because:
-        // 1. It's old enough (7 hours > 6 hours)
+        // 1. Lease processing is complete and
         // 2. All its children (parents) are at SHARD_END
         verify(leaseRefresher, times(1)).deleteLease(grandparentLease);
 
-        // Parent leases should not be deleted because they're not old enough
-        verify(leaseRefresher, never()).deleteLease(parentLease1);
-        verify(leaseRefresher, never()).deleteLease(parentLease2);
+        // Parent leases should be deleted because lease processing is complete
+        verify(leaseRefresher, times(1)).deleteLease(parentLease1);
+        verify(leaseRefresher, times(1)).deleteLease(parentLease2);
 
         // Child leases should not be deleted because:
-        // 1. They're recent
-        // 2. They're still processing (not at SHARD_END)
-        // 3. They're open shards
+        // 1. They're still processing (not at SHARD_END)
+        // 2. They're open shards
         verify(leaseRefresher, never()).deleteLease(childLease1);
         verify(leaseRefresher, never()).deleteLease(childLease2);
         verify(leaseRefresher, never()).deleteLease(childLease3);
@@ -1425,13 +1423,14 @@ public class DynamoDBStreamsShardSyncerTest {
 
         assertTrue(result);
 
-        // Verify grandparent lease is NOT deleted because:
-        // 1. Although it's old enough (7 hours > 6 hours)
-        // 2. One of its children (parentLease2) is still processing
-        verify(leaseRefresher, never()).deleteLease(grandparentLease);
+        // Verify grandparent lease is deleted because:
+        // 1. processing is complete and
+        // 2. One of its children (parentLease2) is being processed
+        verify(leaseRefresher, times(1)).deleteLease(grandparentLease);
 
-        // Parent leases should not be deleted
-        verify(leaseRefresher, never()).deleteLease(parentLease1);  // Not old enough
+        // Parent leases should be deleted as the lease is completed
+        verify(leaseRefresher, times(1)).deleteLease(parentLease1);  // Not old enough
+        // Parent leases should be deleted as it is active lease
         verify(leaseRefresher, never()).deleteLease(parentLease2);  // Still processing
 
         // Child leases should not be deleted
@@ -1441,7 +1440,7 @@ public class DynamoDBStreamsShardSyncerTest {
         verify(leaseRefresher, never()).deleteLease(childLease4);
 
         // Additional verification that no other leases were deleted
-        verify(leaseRefresher, never()).deleteLease(any());
+        verify(leaseRefresher, times(2)).deleteLease(any());
     }
     
     /**
@@ -1509,9 +1508,8 @@ public class DynamoDBStreamsShardSyncerTest {
         assertTrue(result);
 
         // Verify no leases are deleted even though all conditions for deletion are met:
-        // 1. Parent is old enough (7 hours > 6 hours)
-        // 2. All child shards are at SHARD_END
-        // 3. But cleanupLeasesOfCompletedShards is false
+        // 1. All child shards are at SHARD_END
+        // 2. But cleanupLeasesOfCompletedShards is false
         verify(leaseRefresher, never()).deleteLease(any());
     }
 }
