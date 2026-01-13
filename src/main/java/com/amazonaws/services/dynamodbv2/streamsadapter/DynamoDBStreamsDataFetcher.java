@@ -18,6 +18,7 @@ import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMappe
 
 import com.amazonaws.services.dynamodbv2.streamsadapter.adapter.DynamoDBStreamsGetRecordsResponseAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.common.DynamoDBStreamsRequestsBuilder;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
 import com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
@@ -79,6 +80,9 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
     protected static final int MAX_DESCRIBE_STREAM_ATTEMPTS_FOR_CHILD_SHARD_DISCOVERY_ON_NO_RECORDS = 10;
     private static final int DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_MAX_DELAY_IN_MILLIS = 1000;
     private static final int DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_BASE_DELAY_IN_MILLIS = 50;
+
+    @NonNull
+    private final DynamoDBStreamsClientSideCatchUpConfig catchUpConfig;
 
     @NonNull
     private final AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient;
@@ -167,8 +171,10 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
     };
 
     public DynamoDBStreamsDataFetcher(@NotNull AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient,
-                                      DataFetcherProviderConfig dynamoDBStreamsDataFetcherProviderConfig) {
+                                      DataFetcherProviderConfig dynamoDBStreamsDataFetcherProviderConfig,
+                                      @NotNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
         this.amazonDynamoDBStreamsAdapterClient = amazonDynamoDBStreamsAdapterClient;
+        this.catchUpConfig = catchUpConfig;
         this.maxRecords = Math.min(dynamoDBStreamsDataFetcherProviderConfig.getMaxRecords(), DEFAULT_MAX_RECORDS);
         this.metricsFactory = dynamoDBStreamsDataFetcherProviderConfig.getMetricsFactory();
         this.streamIdentifier = dynamoDBStreamsDataFetcherProviderConfig.getStreamIdentifier();
@@ -434,7 +440,7 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
      * @return GetRecordsRequest.
      */
     public GetRecordsRequest ddbGetRecordsRequest(String nextIterator) {
-        return DynamoDBStreamsRequestsBuilder.getRecordsRequestBuilder(consumerId)
+        return DynamoDBStreamsRequestsBuilder.getRecordsRequestBuilder(consumerId, catchUpConfig)
                 .shardIterator(nextIterator)
                 .limit(maxRecords)
                 .build();

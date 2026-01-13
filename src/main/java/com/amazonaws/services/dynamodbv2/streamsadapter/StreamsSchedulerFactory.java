@@ -20,8 +20,9 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.processor.DynamoDBStream
 import com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsPollingConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsClient;
@@ -165,6 +166,41 @@ public final class StreamsSchedulerFactory {
      * @param metricsConfig         the {@link MetricsConfig}
      * @param processorConfig       the {@link ProcessorConfig}
      * @param retrievalConfig       the {@link RetrievalConfig}
+     * @param credentialsProvider   the {@link AwsCredentialsProvider}
+     * @param region                {@link Region}
+     * @param catchUpConfig         the {@link DynamoDBStreamsClientSideCatchUpConfig} for automatic polling rate adjustment
+     * @return the {@link Scheduler}
+     */
+    public static Scheduler createScheduler(
+            @NonNull CheckpointConfig checkpointConfig,
+            @NonNull CoordinatorConfig coordinatorConfig,
+            @NonNull LeaseManagementConfig leaseManagementConfig,
+            @NonNull LifecycleConfig lifecycleConfig,
+            @NonNull MetricsConfig metricsConfig,
+            @NonNull ProcessorConfig processorConfig,
+            @NonNull RetrievalConfig retrievalConfig,
+            @NonNull AwsCredentialsProvider credentialsProvider,
+            @NonNull Region region,
+            @NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+        AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient = new AmazonDynamoDBStreamsAdapterClient(
+                credentialsProvider, region);
+
+        return createScheduler(checkpointConfig, coordinatorConfig,
+                leaseManagementConfig, lifecycleConfig, metricsConfig,
+                processorConfig, retrievalConfig, amazonDynamoDBStreamsAdapterClient, catchUpConfig);
+    }
+
+    /**
+     * Factory function for customers to create a scheduler.
+     * Either createSingleStreamTracker or createMultiStreamTracker must be called before this function.
+     *
+     * @param checkpointConfig      the {@link CheckpointConfig}
+     * @param coordinatorConfig     the {@link CoordinatorConfig}
+     * @param leaseManagementConfig the {@link LeaseManagementConfig}
+     * @param lifecycleConfig       the {@link LifecycleConfig}
+     * @param metricsConfig         the {@link MetricsConfig}
+     * @param processorConfig       the {@link ProcessorConfig}
+     * @param retrievalConfig       the {@link RetrievalConfig}
      * @param dynamoDbStreamsClient the {@link DynamoDbStreamsClient}
      * @param region                the {@link Region}
      * @return the {@link Scheduler}
@@ -179,11 +215,44 @@ public final class StreamsSchedulerFactory {
             @NonNull RetrievalConfig retrievalConfig,
             @NonNull DynamoDbStreamsClient dynamoDbStreamsClient,
             @NonNull Region region) {
-        AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient = new AmazonDynamoDBStreamsAdapterClient(
-                dynamoDbStreamsClient, region);
         return createScheduler(checkpointConfig, coordinatorConfig,
                 leaseManagementConfig, lifecycleConfig, metricsConfig,
-                processorConfig, retrievalConfig, amazonDynamoDBStreamsAdapterClient);
+                processorConfig, retrievalConfig, dynamoDbStreamsClient, region,
+                new DynamoDBStreamsClientSideCatchUpConfig());
+    }
+
+    /**
+     * Factory function for customers to create a scheduler.
+     * Either createSingleStreamTracker or createMultiStreamTracker must be called before this function.
+     *
+     * @param checkpointConfig      the {@link CheckpointConfig}
+     * @param coordinatorConfig     the {@link CoordinatorConfig}
+     * @param leaseManagementConfig the {@link LeaseManagementConfig}
+     * @param lifecycleConfig       the {@link LifecycleConfig}
+     * @param metricsConfig         the {@link MetricsConfig}
+     * @param processorConfig       the {@link ProcessorConfig}
+     * @param retrievalConfig       the {@link RetrievalConfig}
+     * @param dynamoDbStreamsClient the {@link DynamoDbStreamsClient}
+     * @param region                the {@link Region}
+     * @param catchUpConfig         the {@link DynamoDBStreamsClientSideCatchUpConfig} for automatic polling rate adjustment
+     * @return the {@link Scheduler}
+     */
+    public static Scheduler createScheduler(
+            @NonNull CheckpointConfig checkpointConfig,
+            @NonNull CoordinatorConfig coordinatorConfig,
+            @NonNull LeaseManagementConfig leaseManagementConfig,
+            @NonNull LifecycleConfig lifecycleConfig,
+            @NonNull MetricsConfig metricsConfig,
+            @NonNull ProcessorConfig processorConfig,
+            @NonNull RetrievalConfig retrievalConfig,
+            @NonNull DynamoDbStreamsClient dynamoDbStreamsClient,
+            @NonNull Region region,
+            @NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+        AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient =
+                new AmazonDynamoDBStreamsAdapterClient(dynamoDbStreamsClient, region);
+        return createScheduler(checkpointConfig, coordinatorConfig,
+                leaseManagementConfig, lifecycleConfig, metricsConfig,
+                processorConfig, retrievalConfig, amazonDynamoDBStreamsAdapterClient, catchUpConfig);
     }
 
     /**
@@ -209,6 +278,37 @@ public final class StreamsSchedulerFactory {
             @NonNull ProcessorConfig processorConfig,
             @NonNull RetrievalConfig retrievalConfig,
             @NonNull AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient) {
+
+        return createScheduler(checkpointConfig, coordinatorConfig, leaseManagementConfig,
+                lifecycleConfig, metricsConfig, processorConfig, retrievalConfig,
+                amazonDynamoDBStreamsAdapterClient, new DynamoDBStreamsClientSideCatchUpConfig());
+    }
+
+    /**
+     * Factory function for customers to create a scheduler.
+     * Either createSingleStreamTracker or createMultiStreamTracker must be called before this function.
+     *
+     * @param checkpointConfig                   the {@link CheckpointConfig}
+     * @param coordinatorConfig                  the {@link CoordinatorConfig}
+     * @param leaseManagementConfig              the {@link LeaseManagementConfig}
+     * @param lifecycleConfig                    the {@link LifecycleConfig}
+     * @param metricsConfig                      the {@link MetricsConfig}
+     * @param processorConfig                    the {@link ProcessorConfig}
+     * @param retrievalConfig                    the {@link RetrievalConfig}
+     * @param amazonDynamoDBStreamsAdapterClient the {@link AmazonDynamoDBStreamsAdapterClient}
+     * @param catchUpConfig                      the {@link DynamoDBStreamsClientSideCatchUpConfig} for automatic polling rate adjustment
+     * @return the {@link Scheduler}
+     */
+    public static Scheduler createScheduler(
+            @NonNull CheckpointConfig checkpointConfig,
+            @NonNull CoordinatorConfig coordinatorConfig,
+            @NonNull LeaseManagementConfig leaseManagementConfig,
+            @NonNull LifecycleConfig lifecycleConfig,
+            @NonNull MetricsConfig metricsConfig,
+            @NonNull ProcessorConfig processorConfig,
+            @NonNull RetrievalConfig retrievalConfig,
+            @NonNull AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient,
+            @NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
         if (!(processorConfig.shardRecordProcessorFactory().shardRecordProcessor()
                 instanceof DynamoDBStreamsShardRecordProcessor)) {
             throw new IllegalArgumentException("ShardRecordProcessor should be of type "
@@ -222,11 +322,13 @@ public final class StreamsSchedulerFactory {
         Function<DataFetcherProviderConfig, DataFetcher> dataFetcherProvider =
                 (dataFetcherProviderConfig) -> new DynamoDBStreamsDataFetcher(
                         amazonDynamoDBStreamsAdapterClient,
-                        dataFetcherProviderConfig);
+                        dataFetcherProviderConfig,
+                        catchUpConfig);
 
         PollingConfig pollingConfig = (PollingConfig) retrievalConfig.retrievalSpecificConfig();
         pollingConfig.dataFetcherProvider(dataFetcherProvider);
-        pollingConfig.sleepTimeController(new DynamoDBStreamsSleepTimeController());
+        pollingConfig.sleepTimeController(new DynamoDBStreamsSleepTimeController(catchUpConfig, 
+                metricsConfig.metricsFactory()));
         retrievalConfig.retrievalSpecificConfig(pollingConfig);
 
         if (!coordinatorConfig.skipShardSyncAtWorkerInitializationIfLeasesExist()) {
@@ -249,9 +351,6 @@ public final class StreamsSchedulerFactory {
                     + "DynamoDB Streams adapter does not do hole tracking. Setting this to 0.");
             leaseManagementConfig.leasesRecoveryAuditorInconsistencyConfidenceThreshold(0);
         }
-
-        log.warn("Setting the delay to complete a shard sync task as 0.");
-        leaseManagementConfig.shardSyncIntervalMillis(0);
 
         return new Scheduler(
                 checkpointConfig,
