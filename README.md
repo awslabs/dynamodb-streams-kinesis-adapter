@@ -16,7 +16,7 @@ DynamoDB Streams Kinesis Adapter implements the Amazon Kinesis interface so that
 
 • KCL is designed to process streams from Amazon Kinesis, but by adding the DynamoDB Streams Kinesis Adapter, your application can process DynamoDB Streams instead, seamlessly and efficiently.
 
-• Version 2.0.0 brings compatibility with KCL version 3, enabling modern stream processing capabilities with enhanced performance and reliability.
+• Version 2.x brings compatibility with KCL version 3, enabling modern stream processing capabilities with enhanced performance and reliability.
 
 ## Getting Started
 • **Sign up for AWS** - Before you begin, you need an AWS account. Please see the [AWS Account and Credentials][6] section of the developer guide for information about how to create an AWS account and retrieve your AWS credentials. You don't
@@ -37,7 +37,7 @@ Add the following to your Maven pom file:
 <dependency>
    <groupId>com.amazonaws</groupId>
    <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
-   <version>2.0.0</version>
+   <version>2.1.0</version>
 </dependency>
 ```
 

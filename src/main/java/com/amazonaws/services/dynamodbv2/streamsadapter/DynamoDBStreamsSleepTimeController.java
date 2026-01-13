@@ -23,7 +23,7 @@ import software.amazon.kinesis.metrics.MetricsScope;
 import software.amazon.kinesis.metrics.MetricsUtil;
 import software.amazon.kinesis.retrieval.polling.SleepTimeController;
 import software.amazon.kinesis.retrieval.polling.SleepTimeControllerConfig;
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -35,16 +35,16 @@ public class DynamoDBStreamsSleepTimeController implements SleepTimeController {
     private static final String CATCHUP_MODE_ACTIVE_METRIC = "DynamoDBStreamsCatchUpModeActive";
 
     @NonNull
-    private final DynamoDBStreamsClientSideCatchUpConfig catchUpConfig;
+    private final DynamoDBStreamsCatchUpConfig catchUpConfig;
     @NonNull
     private final MetricsFactory metricsFactory;
 
     public DynamoDBStreamsSleepTimeController(@NonNull MetricsFactory metricsFactory) {
-        this.catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        this.catchUpConfig = new DynamoDBStreamsCatchUpConfig();
         this.metricsFactory = metricsFactory;
     }
 
-    public DynamoDBStreamsSleepTimeController(@NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig,
+    public DynamoDBStreamsSleepTimeController(@NonNull DynamoDBStreamsCatchUpConfig catchUpConfig,
                                               @NonNull MetricsFactory metricsFactory) {
         this.catchUpConfig = catchUpConfig;
         this.metricsFactory = metricsFactory;
@@ -60,7 +60,7 @@ public class DynamoDBStreamsSleepTimeController implements SleepTimeController {
             log.debug("Catch-up mode enabled: reducing sleep time by factor of {} (millisBehindLatest: {}ms, threshold: {}ms)",
                     catchUpConfig.scalingFactor(),
                     sleepTimeControllerConfig.lastMillisBehindLatest(),
-                    catchUpConfig.millisBehindLatestThreshold().toMillis());
+                    catchUpConfig.millisBehindLatestThreshold());
             emitCatchUpModeMetric();
         }
 
@@ -84,7 +84,7 @@ public class DynamoDBStreamsSleepTimeController implements SleepTimeController {
     private boolean shouldEnterCatchUpMode(SleepTimeControllerConfig config) {
         return catchUpConfig.catchupEnabled()
                 && config.lastMillisBehindLatest() != null
-                && config.lastMillisBehindLatest() > catchUpConfig.millisBehindLatestThreshold().toMillis();
+                && config.lastMillisBehindLatest() > catchUpConfig.millisBehindLatestThreshold();
     }
 
     /**

@@ -22,7 +22,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsPollingConfig;
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.streams.DynamoDbStreamsClient;
@@ -168,7 +168,7 @@ public final class StreamsSchedulerFactory {
      * @param retrievalConfig       the {@link RetrievalConfig}
      * @param credentialsProvider   the {@link AwsCredentialsProvider}
      * @param region                {@link Region}
-     * @param catchUpConfig         the {@link DynamoDBStreamsClientSideCatchUpConfig} for automatic polling rate adjustment
+     * @param catchUpConfig         the {@link DynamoDBStreamsCatchUpConfig} for automatic polling rate adjustment
      * @return the {@link Scheduler}
      */
     public static Scheduler createScheduler(
@@ -181,7 +181,7 @@ public final class StreamsSchedulerFactory {
             @NonNull RetrievalConfig retrievalConfig,
             @NonNull AwsCredentialsProvider credentialsProvider,
             @NonNull Region region,
-            @NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+            @NonNull DynamoDBStreamsCatchUpConfig catchUpConfig) {
         AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient = new AmazonDynamoDBStreamsAdapterClient(
                 credentialsProvider, region);
 
@@ -218,7 +218,7 @@ public final class StreamsSchedulerFactory {
         return createScheduler(checkpointConfig, coordinatorConfig,
                 leaseManagementConfig, lifecycleConfig, metricsConfig,
                 processorConfig, retrievalConfig, dynamoDbStreamsClient, region,
-                new DynamoDBStreamsClientSideCatchUpConfig());
+                new DynamoDBStreamsCatchUpConfig());
     }
 
     /**
@@ -234,7 +234,7 @@ public final class StreamsSchedulerFactory {
      * @param retrievalConfig       the {@link RetrievalConfig}
      * @param dynamoDbStreamsClient the {@link DynamoDbStreamsClient}
      * @param region                the {@link Region}
-     * @param catchUpConfig         the {@link DynamoDBStreamsClientSideCatchUpConfig} for automatic polling rate adjustment
+     * @param catchUpConfig         the {@link DynamoDBStreamsCatchUpConfig} for automatic polling rate adjustment
      * @return the {@link Scheduler}
      */
     public static Scheduler createScheduler(
@@ -247,7 +247,7 @@ public final class StreamsSchedulerFactory {
             @NonNull RetrievalConfig retrievalConfig,
             @NonNull DynamoDbStreamsClient dynamoDbStreamsClient,
             @NonNull Region region,
-            @NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+            @NonNull DynamoDBStreamsCatchUpConfig catchUpConfig) {
         AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient =
                 new AmazonDynamoDBStreamsAdapterClient(dynamoDbStreamsClient, region);
         return createScheduler(checkpointConfig, coordinatorConfig,
@@ -281,7 +281,7 @@ public final class StreamsSchedulerFactory {
 
         return createScheduler(checkpointConfig, coordinatorConfig, leaseManagementConfig,
                 lifecycleConfig, metricsConfig, processorConfig, retrievalConfig,
-                amazonDynamoDBStreamsAdapterClient, new DynamoDBStreamsClientSideCatchUpConfig());
+                amazonDynamoDBStreamsAdapterClient, new DynamoDBStreamsCatchUpConfig());
     }
 
     /**
@@ -296,7 +296,7 @@ public final class StreamsSchedulerFactory {
      * @param processorConfig                    the {@link ProcessorConfig}
      * @param retrievalConfig                    the {@link RetrievalConfig}
      * @param amazonDynamoDBStreamsAdapterClient the {@link AmazonDynamoDBStreamsAdapterClient}
-     * @param catchUpConfig                      the {@link DynamoDBStreamsClientSideCatchUpConfig} for automatic polling rate adjustment
+     * @param catchUpConfig                      the {@link DynamoDBStreamsCatchUpConfig} for automatic polling rate adjustment
      * @return the {@link Scheduler}
      */
     public static Scheduler createScheduler(
@@ -308,7 +308,7 @@ public final class StreamsSchedulerFactory {
             @NonNull ProcessorConfig processorConfig,
             @NonNull RetrievalConfig retrievalConfig,
             @NonNull AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient,
-            @NonNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+            @NonNull DynamoDBStreamsCatchUpConfig catchUpConfig) {
         if (!(processorConfig.shardRecordProcessorFactory().shardRecordProcessor()
                 instanceof DynamoDBStreamsShardRecordProcessor)) {
             throw new IllegalArgumentException("ShardRecordProcessor should be of type "

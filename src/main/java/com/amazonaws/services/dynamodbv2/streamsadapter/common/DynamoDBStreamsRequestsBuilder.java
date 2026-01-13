@@ -15,7 +15,7 @@
 
 package com.amazonaws.services.dynamodbv2.streamsadapter.common;
 
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.ApiName;
@@ -80,7 +80,7 @@ public final class DynamoDBStreamsRequestsBuilder {
      * @param config DynamoDB Streams client-side catch-up configuration
      * @return GetRecordsRequest builder with user agent configuration including catch-up config
      */
-    public static GetRecordsRequest.Builder getRecordsRequestBuilder(String consumerId, DynamoDBStreamsClientSideCatchUpConfig config) {
+    public static GetRecordsRequest.Builder getRecordsRequestBuilder(String consumerId, DynamoDBStreamsCatchUpConfig config) {
         return appendUserAgentWithCatchUpConfig(GetRecordsRequest.builder(), consumerId, config);
     }
 
@@ -141,11 +141,11 @@ public final class DynamoDBStreamsRequestsBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T extends AwsRequest.Builder> T appendUserAgentWithCatchUpConfig(final T builder, String consumerId, DynamoDBStreamsClientSideCatchUpConfig config) {
+    private static <T extends AwsRequest.Builder> T appendUserAgentWithCatchUpConfig(final T builder, String consumerId, DynamoDBStreamsCatchUpConfig config) {
         String userAgentName = String.format("%s catchup#%d-T#%s-S#%d %s",
             consumerId,
             config.catchupEnabled() ? 1 : 0,
-            config.millisBehindLatestThreshold().toMillis(),
+            config.millisBehindLatestThreshold(),
             config.scalingFactor(),
             RetrievalConfig.KINESIS_CLIENT_LIB_USER_AGENT);
         
