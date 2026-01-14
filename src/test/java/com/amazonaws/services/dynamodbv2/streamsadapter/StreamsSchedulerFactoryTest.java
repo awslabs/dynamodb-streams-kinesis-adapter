@@ -14,7 +14,7 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import com.amazonaws.services.dynamodbv2.streamsadapter.processor.DynamoDBStreamsShardRecordProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -445,7 +445,7 @@ class StreamsSchedulerFactoryTest {
                 WORKER_ID,
                 shardRecordProcessorFactory);
         
-        DynamoDBStreamsClientSideCatchUpConfig catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        DynamoDBStreamsCatchUpConfig catchUpConfig = new DynamoDBStreamsCatchUpConfig();
         
         Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
                 configsBuilder.checkpointConfig(),
@@ -475,7 +475,7 @@ class StreamsSchedulerFactoryTest {
                 WORKER_ID,
                 shardRecordProcessorFactory);
         
-        DynamoDBStreamsClientSideCatchUpConfig catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        DynamoDBStreamsCatchUpConfig catchUpConfig = new DynamoDBStreamsCatchUpConfig();
         
         Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
                 configsBuilder.checkpointConfig(),
@@ -504,7 +504,7 @@ class StreamsSchedulerFactoryTest {
                 WORKER_ID,
                 shardRecordProcessorFactory);
         
-        DynamoDBStreamsClientSideCatchUpConfig catchUpConfig = new DynamoDBStreamsClientSideCatchUpConfig();
+        DynamoDBStreamsCatchUpConfig catchUpConfig = new DynamoDBStreamsCatchUpConfig();
         
         Scheduler scheduler = StreamsSchedulerFactory.createScheduler(
                 configsBuilder.checkpointConfig(),

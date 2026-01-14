@@ -1,4 +1,13 @@
-### Latest Release (v2.0.1)
+### Latest Release (v2.1.0)
+* Introduces Catch-up Mode, an automatic GetRecords API polling rate adjustment feature that helps stream consumers catch up when falling behind during high write throughput scenarios.
+* Adds configurable parameters: `catchupEnabled` (default: false), `millisBehindLatestThreshold` (default: 60000), and `scalingFactor` (default: 3).
+* Monitors millisBehindLatest and automatically reduces sleep time between GetRecords calls when consumers lag behind real-time data.
+* Upgrades Amazon Kinesis Client Library (KCL) to version 3.2.1.
+* Upgrades AWS Java SDK to version 2.39.6.
+* Adds support for `ddblocal` region for DynamoDB Local with improved null metadata handling.
+* Removes dependency on jackson-datatype-jsr310 as part of dependency cleanup.
+
+### Release (v2.0.1)
 * Added support for optional shard filter parameter in DescribeStream api that allows customers to fetch child shards of a read_only parent shard.
 * Fixes the [bug](https://github.com/awslabs/dynamodb-streams-kinesis-adapter/issues/62) where dynamodb-streams-kinesis-adapter was not constructing stream arn properly for china aws partition.
 * Bump aws sdk to 2.32.0

@@ -15,7 +15,7 @@
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
 import com.amazonaws.services.dynamodbv2.streamsadapter.adapter.DynamoDBStreamsGetRecordsResponseAdapter;
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -92,7 +92,7 @@ public class DynamoDBStreamsDataFetcherTest {
         streamIdentifier = StreamIdentifier.singleStreamInstance(STREAM_NAME);
         metricsFactory = new NullMetricsFactory();
         dataFetcherProviderConfig = new KinesisDataFetcherProviderConfig(streamIdentifier, SHARD_ID, metricsFactory, MAX_RECORDS, Duration.ofMillis(30000L), CONSUMER_ID);
-        dynamoDBStreamsDataFetcher = new DynamoDBStreamsDataFetcher(amazonDynamoDBStreamsAdapterClient, dataFetcherProviderConfig, new DynamoDBStreamsClientSideCatchUpConfig());
+        dynamoDBStreamsDataFetcher = new DynamoDBStreamsDataFetcher(amazonDynamoDBStreamsAdapterClient, dataFetcherProviderConfig, new DynamoDBStreamsCatchUpConfig());
     }
 
     @Test

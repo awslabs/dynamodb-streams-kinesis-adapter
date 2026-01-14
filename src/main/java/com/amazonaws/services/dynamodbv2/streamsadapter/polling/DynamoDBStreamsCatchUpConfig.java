@@ -29,25 +29,22 @@ import java.time.Duration;
 @Setter
 @ToString
 @EqualsAndHashCode
-public class DynamoDBStreamsClientSideCatchUpConfig {
+public class DynamoDBStreamsCatchUpConfig {
     private boolean catchupEnabled = false;
-    private Duration millisBehindLatestThreshold = Duration.ofMinutes(1);
+    private long millisBehindLatestThreshold = Duration.ofMinutes(1).toMillis();
     private int scalingFactor = 3;
     
-    public DynamoDBStreamsClientSideCatchUpConfig millisBehindLatestThreshold(Duration threshold) {
-        if (threshold == null) {
-            throw new IllegalArgumentException("Threshold cannot be null");
-        }
-        if (threshold.isNegative() || threshold.isZero()) {
-            throw new IllegalArgumentException("Threshold must be positive, got: " + threshold);
+    public DynamoDBStreamsCatchUpConfig millisBehindLatestThreshold(long threshold) {
+        if (threshold <= 0) {
+            throw new IllegalArgumentException("millisBehindLatestThreshold must be positive, got: " + threshold);
         }
         this.millisBehindLatestThreshold = threshold;
         return this;
     }
     
-    public DynamoDBStreamsClientSideCatchUpConfig scalingFactor(int scalingFactor) {
+    public DynamoDBStreamsCatchUpConfig scalingFactor(int scalingFactor) {
         if (scalingFactor <= 0) {
-            throw new IllegalArgumentException("Scaling factor must be positive, got: " + scalingFactor);
+            throw new IllegalArgumentException("scalingFactor must be positive, got: " + scalingFactor);
         }
         this.scalingFactor = scalingFactor;
         return this;

@@ -18,7 +18,7 @@ import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMappe
 
 import com.amazonaws.services.dynamodbv2.streamsadapter.adapter.DynamoDBStreamsGetRecordsResponseAdapter;
 import com.amazonaws.services.dynamodbv2.streamsadapter.common.DynamoDBStreamsRequestsBuilder;
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
@@ -82,7 +82,7 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
     private static final int DESCRIBE_STREAM_FOR_CHILD_SHARD_DISCOVERY_BACKOFF_ON_NO_RECORDS_BASE_DELAY_IN_MILLIS = 50;
 
     @NonNull
-    private final DynamoDBStreamsClientSideCatchUpConfig catchUpConfig;
+    private final DynamoDBStreamsCatchUpConfig catchUpConfig;
 
     @NonNull
     private final AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient;
@@ -172,7 +172,7 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
 
     public DynamoDBStreamsDataFetcher(@NotNull AmazonDynamoDBStreamsAdapterClient amazonDynamoDBStreamsAdapterClient,
                                       DataFetcherProviderConfig dynamoDBStreamsDataFetcherProviderConfig,
-                                      @NotNull DynamoDBStreamsClientSideCatchUpConfig catchUpConfig) {
+                                      @NotNull DynamoDBStreamsCatchUpConfig catchUpConfig) {
         this.amazonDynamoDBStreamsAdapterClient = amazonDynamoDBStreamsAdapterClient;
         this.catchUpConfig = catchUpConfig;
         this.maxRecords = Math.min(dynamoDBStreamsDataFetcherProviderConfig.getMaxRecords(), DEFAULT_MAX_RECORDS);

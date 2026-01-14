@@ -14,7 +14,7 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
-import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsClientSideCatchUpConfig;
+import com.amazonaws.services.dynamodbv2.streamsadapter.polling.DynamoDBStreamsCatchUpConfig;
 import org.junit.Test;
 import org.junit.Before;
 import software.amazon.kinesis.metrics.MetricsFactory;
@@ -128,7 +128,7 @@ public class DynamoDBStreamsSleepTimeControllerTest {
 
     @Test
     public void testCatchUpModeActivation() {
-        DynamoDBStreamsClientSideCatchUpConfig config = new DynamoDBStreamsClientSideCatchUpConfig()
+        DynamoDBStreamsCatchUpConfig config = new DynamoDBStreamsCatchUpConfig()
                 .catchupEnabled(true)
                 .scalingFactor(2);
 
@@ -137,7 +137,7 @@ public class DynamoDBStreamsSleepTimeControllerTest {
 
         SleepTimeControllerConfig sleepConfig = SleepTimeControllerConfig.builder()
                 .idleMillisBetweenCalls(IDLE_MILLIS)
-                .lastMillisBehindLatest(Duration.ofMinutes(10).toMillis()) // Above 5min threshold
+                .lastMillisBehindLatest(Duration.ofMinutes(10).toMillis())
                 .lastSuccessfulCall(null) // No previous call
                 .lastRecordsCount(5)
                 .build();
@@ -148,7 +148,7 @@ public class DynamoDBStreamsSleepTimeControllerTest {
 
     @Test
     public void testCatchUpModeDisabled() {
-        DynamoDBStreamsClientSideCatchUpConfig config = new DynamoDBStreamsClientSideCatchUpConfig(); // disabled by default
+        DynamoDBStreamsCatchUpConfig config = new DynamoDBStreamsCatchUpConfig(); // disabled by default
 
         DynamoDBStreamsSleepTimeController catchUpController =
                 new DynamoDBStreamsSleepTimeController(config, metricsFactory);
@@ -167,34 +167,30 @@ public class DynamoDBStreamsSleepTimeControllerTest {
     @Test
     public void testCatchUpModeWithInvalidScalingFactor() {
         assertThrows(IllegalArgumentException.class, () -> {
-            new DynamoDBStreamsClientSideCatchUpConfig().scalingFactor(0);
+            new DynamoDBStreamsCatchUpConfig().scalingFactor(0);
         });
         
         assertThrows(IllegalArgumentException.class, () -> {
-            new DynamoDBStreamsClientSideCatchUpConfig().scalingFactor(-1);
+            new DynamoDBStreamsCatchUpConfig().scalingFactor(-1);
         });
     }
 
     @Test
     public void testCatchUpModeWithInvalidThreshold() {
         assertThrows(IllegalArgumentException.class, () -> {
-            new DynamoDBStreamsClientSideCatchUpConfig().millisBehindLatestThreshold(null);
+            new DynamoDBStreamsCatchUpConfig().millisBehindLatestThreshold(0);
         });
         
         assertThrows(IllegalArgumentException.class, () -> {
-            new DynamoDBStreamsClientSideCatchUpConfig().millisBehindLatestThreshold(Duration.ZERO);
-        });
-        
-        assertThrows(IllegalArgumentException.class, () -> {
-            new DynamoDBStreamsClientSideCatchUpConfig().millisBehindLatestThreshold(Duration.ofMinutes(-5));
+            new DynamoDBStreamsCatchUpConfig().millisBehindLatestThreshold(-1);
         });
     }
 
     @Test
     public void testCatchUpModeMetricEmitted() {
-        DynamoDBStreamsClientSideCatchUpConfig config = new DynamoDBStreamsClientSideCatchUpConfig()
+        DynamoDBStreamsCatchUpConfig config = new DynamoDBStreamsCatchUpConfig()
                 .catchupEnabled(true)
-                .millisBehindLatestThreshold(Duration.ofMinutes(1));
+                .millisBehindLatestThreshold(60000);
 
         DynamoDBStreamsSleepTimeController catchUpController =
                 new DynamoDBStreamsSleepTimeController(config, metricsFactory);
@@ -214,7 +210,7 @@ public class DynamoDBStreamsSleepTimeControllerTest {
 
     @Test
     public void testCatchUpModeMetricNotEmittedWhenDisabled() {
-        DynamoDBStreamsClientSideCatchUpConfig config = new DynamoDBStreamsClientSideCatchUpConfig()
+        DynamoDBStreamsCatchUpConfig config = new DynamoDBStreamsCatchUpConfig()
                 .catchupEnabled(false);
 
         DynamoDBStreamsSleepTimeController catchUpController =
