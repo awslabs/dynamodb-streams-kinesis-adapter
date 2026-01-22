@@ -115,6 +115,7 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                                       final String streamIdentifier,
                                       final boolean cleanupLeasesOfCompletedShards,
                                       final DeletedStreamListProvider deletedStreamListProvider) {
+        super(isMultiStreamMode, streamIdentifier, deletedStreamListProvider);
         this.isMultiStreamMode = isMultiStreamMode;
         this.streamIdentifier = streamIdentifier;
         this.deletedStreamListProvider = deletedStreamListProvider;
