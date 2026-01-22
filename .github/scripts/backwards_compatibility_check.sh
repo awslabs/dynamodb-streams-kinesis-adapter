@@ -1,0 +1,130 @@
+#!/bin/bash
+
+TRUE=1
+FALSE=0
+KCL_ADAPTER_MAVEN_DIR=~/.m2/repository/com/amazonaws/dynamodb-streams-kinesis-adapter
+
+REMOVED_METHODS_FLAG=$FALSE
+LATEST_VERSION=""
+LATEST_JAR=""
+CURRENT_VERSION=""
+CURRENT_JAR=""
+
+get_latest_jar() {
+  #  clear the directory so that the latest release will be the only version in the Maven directory after running mvn dependency:get
+  rm -rf "$KCL_ADAPTER_MAVEN_DIR"
+  mvn -B dependency:get -Dartifact=com.amazonaws:dynamodb-streams-kinesis-adapter:LATEST
+  LATEST_VERSION=$(ls "$KCL_ADAPTER_MAVEN_DIR" | grep -E '[0-9]+.[0-9]+.[0-9]+')
+  LATEST_JAR=$KCL_ADAPTER_MAVEN_DIR/$LATEST_VERSION/dynamodb-streams-kinesis-adapter-$LATEST_VERSION.jar
+}
+
+# Get the JAR with the changes that need to be verified.
+get_current_jar() {
+  mvn -B install -Dmaven.test.skip=true
+  CURRENT_VERSION=$(mvn -q  -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+  CURRENT_JAR=$KCL_ADAPTER_MAVEN_DIR/$CURRENT_VERSION/dynamodb-streams-kinesis-adapter-$CURRENT_VERSION.jar
+}
+
+is_new_minor_release() {
+  is_new_major_release && return 1
+
+  local latest_minor_version=$(echo "$LATEST_VERSION" | cut -d . -f 2)
+  local current_minor_version=$(echo "$CURRENT_VERSION" | cut -d . -f 2)
+  [[ "$latest_minor_version" != "$current_minor_version" ]]
+  return $?
+}
+
+is_new_major_release() {
+  local latest_major_version=$(echo "$LATEST_VERSION" | cut -d . -f 1)
+  local current_major_version=$(echo "$CURRENT_VERSION" | cut -d . -f 1)
+  [[ "$latest_major_version" != "$current_major_version" ]]
+  return $?
+}
+
+# Skip classes which are not public (e.g. package level). These classes will not break backwards compatibility.
+is_non_public_class() {
+  local current_class="$1"
+  local class_definition=$(javap -classpath "$LATEST_JAR" "$current_class" | head -2 | tail -1)
+  [[ "$class_definition" != *"public"* ]]
+  return $?
+}
+
+# Ignore methods that change from abstract to non-abstract (and vice-versa) if the class is an interface.\
+# Ignore methods that change from synchronized to non-synchronized (and vice-versa)
+ignore_non_breaking_changes() {
+  local current_class="$1"
+  local class_definition=$(javap -classpath "$LATEST_JAR" "$current_class" | head -2 | tail -1)
+  if [[ $class_definition == *"interface"* ]]
+  then
+    LATEST_METHODS=${LATEST_METHODS//abstract /}
+    CURRENT_METHODS=${CURRENT_METHODS//abstract /}
+  else
+    LATEST_METHODS=${LATEST_METHODS//synchronized /}
+    CURRENT_METHODS=${CURRENT_METHODS//synchronized /}
+  fi
+}
+
+# Checks if there are any methods in the latest version that were removed in the current version.
+find_removed_methods() {
+  echo "Checking if methods in current version (v$CURRENT_VERSION) were removed from latest version (v$LATEST_VERSION)"
+  if is_new_minor_release || is_new_major_release
+  then
+    echo "New minor/major release is being performed."
+  fi
+  local latest_classes=$(
+    jar tf $LATEST_JAR |
+    grep .class |
+    tr / . |
+    sed 's/\.class$//')
+  for class in $latest_classes
+  do
+    if is_non_public_class "$class"
+    then
+      continue
+    fi
+
+    CURRENT_METHODS=$(javap -classpath "$CURRENT_JAR" "$class" 2>/dev/null)
+    if [ -z "$CURRENT_METHODS" ]
+    then
+        echo "Class $class was removed"
+        REMOVED_METHODS_FLAG=$TRUE
+        continue
+    fi
+
+    LATEST_METHODS=$(javap -classpath "$LATEST_JAR" "$class")
+
+    ignore_non_breaking_changes "$class"
+
+    local removed_methods=$(diff <(echo "$LATEST_METHODS") <(echo "$CURRENT_METHODS") | grep '^<')
+
+    # ignore synthetic access methods - these are not available to users and will not break backwards compatibility
+    removed_methods=$(echo "$removed_methods" | grep -v "access\$[0-9]\+")
+
+    if [[ "$removed_methods" != "" ]]
+    then
+      REMOVED_METHODS_FLAG=$TRUE
+      echo "$class does not have method(s):"
+      echo "$removed_methods"
+    fi
+  done
+}
+
+get_backwards_compatible_result() {
+  if [[ $REMOVED_METHODS_FLAG == $TRUE ]]
+  then
+    echo "Current DynamoDB Streams Kinesis Adapter version $CURRENT_VERSION is not backwards compatible with version $LATEST_VERSION. See output above for removed packages/methods."
+    is_new_major_release || exit 1
+  else
+    echo "Current DynamoDB Streams Kinesis Adapter version $CURRENT_VERSION is backwards compatible with version $LATEST_VERSION."
+    exit 0
+  fi
+}
+
+main() {
+  get_latest_jar
+  get_current_jar
+  find_removed_methods
+  get_backwards_compatible_result
+}
+
+main
