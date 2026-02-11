@@ -23,7 +23,7 @@
     </licenses>
 
     <properties>
-        <software-kinesis.version>3.2.1</software-kinesis.version>
+        <software-kinesis.version>3.3.0</software-kinesis.version>
         <gpg.skip>true</gpg.skip>
         <maven.dependency.version>3.0.0</maven.dependency.version>
         <awssdk.version>2.39.6</awssdk.version>
