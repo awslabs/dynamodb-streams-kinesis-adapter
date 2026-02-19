@@ -1,4 +1,8 @@
-### Latest Release (v2.1.0)
+### Latest Release (v2.1.1)
+* Fixes a bug in multi-stream mode where child shard leases were not being created properly at shard end that caused intermittent spikes in MillisBehindLatest.
+* Upgrades Amazon Kinesis Client Library (KCL) to version 3.3.0.
+
+### Release (v2.1.0)
 * Introduces Catch-up Mode, an automatic GetRecords API polling rate adjustment feature that helps stream consumers catch up when falling behind during high write throughput scenarios.
 * Adds configurable parameters: `catchupEnabled` (default: false), `millisBehindLatestThreshold` (default: 60000), and `scalingFactor` (default: 3).
 * Monitors millisBehindLatest and automatically reduces sleep time between GetRecords calls when consumers lag behind real-time data.
