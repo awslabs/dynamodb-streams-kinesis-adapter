@@ -36,6 +36,7 @@ import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.common.StreamIdentifier;
 import software.amazon.kinesis.coordinator.DeletedStreamListProvider;
+import software.amazon.kinesis.coordinator.StreamInfoManager;
 import software.amazon.kinesis.exceptions.internal.KinesisClientLibIOException;
 import software.amazon.kinesis.leases.HierarchicalShardSyncer;
 import software.amazon.kinesis.leases.Lease;
@@ -99,8 +100,8 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      * @param streamIdentifier The identifier for the stream being processed
      */
     public DynamoDBStreamsShardSyncer(final boolean isMultiStreamMode, final String streamIdentifier,
-                                      final boolean cleanupLeasesOfCompletedShards) {
-        this(isMultiStreamMode, streamIdentifier, cleanupLeasesOfCompletedShards, null);
+                                      final boolean cleanupLeasesOfCompletedShards, final StreamInfoManager streamInfoManager) {
+        this(isMultiStreamMode, streamIdentifier, cleanupLeasesOfCompletedShards, null, streamInfoManager);
     }
 
     /**
@@ -114,8 +115,9 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
     public DynamoDBStreamsShardSyncer(final boolean isMultiStreamMode,
                                       final String streamIdentifier,
                                       final boolean cleanupLeasesOfCompletedShards,
-                                      final DeletedStreamListProvider deletedStreamListProvider) {
-        super(isMultiStreamMode, streamIdentifier, deletedStreamListProvider);
+                                      final DeletedStreamListProvider deletedStreamListProvider,
+                                      final StreamInfoManager streamInfoManager) {
+        super(isMultiStreamMode, streamIdentifier, deletedStreamListProvider, streamInfoManager);
         this.isMultiStreamMode = isMultiStreamMode;
         this.streamIdentifier = streamIdentifier;
         this.deletedStreamListProvider = deletedStreamListProvider;

@@ -18,6 +18,7 @@ import lombok.NonNull;
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
 import software.amazon.kinesis.common.StreamConfig;
 import software.amazon.kinesis.coordinator.DeletedStreamListProvider;
+import software.amazon.kinesis.coordinator.StreamInfoManager;
 import software.amazon.kinesis.leases.LeaseCleanupManager;
 import software.amazon.kinesis.leases.LeaseCoordinator;
 import software.amazon.kinesis.leases.LeaseManagementConfig;
@@ -98,7 +99,8 @@ public class DynamoDBStreamsLeaseManagementFactory extends DynamoDBLeaseManageme
     @Override
     public ShardSyncTaskManager createShardSyncTaskManager(MetricsFactory metricsFactory,
                                                            StreamConfig streamConfig,
-                                                           DeletedStreamListProvider deletedStreamListProvider) {
+                                                           DeletedStreamListProvider deletedStreamListProvider,
+                                                           StreamInfoManager streamInfoManager) {
         return new ShardSyncTaskManager(
                 this.createShardDetector(streamConfig),
                 this.createLeaseRefresher(),
@@ -111,7 +113,8 @@ public class DynamoDBStreamsLeaseManagementFactory extends DynamoDBLeaseManageme
                         super.isMultiStreamMode(),
                         streamConfig.streamIdentifier().toString(),
                         super.isCleanupLeasesUponShardCompletion(),
-                        deletedStreamListProvider),
+                        deletedStreamListProvider,
+                        streamInfoManager),
                 metricsFactory
         );
     }

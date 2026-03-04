@@ -26,6 +26,7 @@ import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.common.StreamIdentifier;
 import software.amazon.kinesis.coordinator.DeletedStreamListProvider;
+import software.amazon.kinesis.coordinator.StreamInfoManager;
 import software.amazon.kinesis.exceptions.internal.KinesisClientLibIOException;
 import software.amazon.kinesis.leases.Lease;
 import software.amazon.kinesis.leases.LeaseRefresher;
@@ -89,7 +90,8 @@ public class DynamoDBStreamsShardSyncerTest {
     @BeforeEach
     void setup() throws DependencyException {
         MockitoAnnotations.openMocks(this);
-        shardSyncer = new DynamoDBStreamsShardSyncer(false, SINGLE_STREAM_NAME, true);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
+        shardSyncer = new DynamoDBStreamsShardSyncer(false, SINGLE_STREAM_NAME, true, streamInfoManagerMock);
         when(leaseRefresher.getLeaseTableIdentifier()).thenReturn("CONSUMER_ID");
         when(shardDetector.streamIdentifier()).thenReturn(SINGLE_STREAM_IDENTIFIER);
     }
@@ -163,11 +165,13 @@ public class DynamoDBStreamsShardSyncerTest {
 
     @Test
     void testMultiStreamModeWithSingleStreamHavingSingleShard() throws Exception {
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
         // Setup
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true, // isMultiStreamMode
                 MULTI_STREAM_NAME,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         String shardId = "shardId-000000000000";
@@ -212,12 +216,14 @@ public class DynamoDBStreamsShardSyncerTest {
         String stream2Name = KinesisMapperUtil.createKinesisStreamIdentifierFromDynamoDBStreamsArn("arn:aws:dynamodb:us-west-2:123456789012:table/Table2/stream/2024-02-03T00:00:00.000", true);
         StreamIdentifier stream1Identifier = StreamIdentifier.singleStreamInstance(stream1Name);
         StreamIdentifier stream2Identifier = StreamIdentifier.singleStreamInstance(stream2Name);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 stream1Name,
                 true,
-                null // deletedStreamListProvider
+                null, // deletedStreamListProvider
+                streamInfoManagerMock
         );
 
         // Create timestamps and shard IDs
@@ -330,11 +336,13 @@ public class DynamoDBStreamsShardSyncerTest {
 
     @Test
     void testMultiStreamSyncerInitialization() {
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
         // Setup
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 MULTI_STREAM_NAME,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Use reflection to verify the initialization
@@ -360,17 +368,20 @@ public class DynamoDBStreamsShardSyncerTest {
         // Setup multiple streams
         String stream1Identifier = KinesisMapperUtil.createKinesisStreamIdentifierFromDynamoDBStreamsArn("arn:aws:dynamodb:us-east-1:123456789101:table/table1/stream/2023-05-11T01:00:00", true);
         String stream2Identifier = KinesisMapperUtil.createKinesisStreamIdentifierFromDynamoDBStreamsArn("arn:aws:dynamodb:us-east-1:123456789101:table/table2/stream/2023-05-11T01:00:00", true);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer1 = new DynamoDBStreamsShardSyncer(
                 true,
                 stream1Identifier,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         DynamoDBStreamsShardSyncer multiStreamSyncer2 = new DynamoDBStreamsShardSyncer(
                 true,
                 stream2Identifier,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Create timestamps and shard IDs
@@ -530,11 +541,13 @@ public class DynamoDBStreamsShardSyncerTest {
 
     @Test
     void testLeaseCreationForComplexLineageMultiLease() throws Exception {
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
         // Setup
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 MULTI_STREAM_NAME,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Create base timestamp and shard IDs
@@ -618,12 +631,14 @@ public class DynamoDBStreamsShardSyncerTest {
         ResourceNotFoundException exception = ResourceNotFoundException.builder()
                 .message("Stream not found: " + SINGLE_STREAM_NAME)
                 .build();
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer shardSyncer = new DynamoDBStreamsShardSyncer(
                 false,
                 SINGLE_STREAM_NAME,
                 true,
-                deletedStreamListProvider
+                deletedStreamListProvider,
+                streamInfoManagerMock
         );
         when(shardDetector.listShards(anyString())).thenThrow(exception);
         
@@ -660,11 +675,13 @@ public class DynamoDBStreamsShardSyncerTest {
     void testMultiStreamModeWithResourceNotFoundException() throws Exception {
         // Setup
         DeletedStreamListProvider deletedStreamListProvider = mock(DeletedStreamListProvider.class);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 MULTI_STREAM_NAME,
                 true,
-                deletedStreamListProvider
+                deletedStreamListProvider,
+                streamInfoManagerMock
         );
         
         ResourceNotFoundException exception = ResourceNotFoundException.builder()
@@ -918,11 +935,13 @@ public class DynamoDBStreamsShardSyncerTest {
         when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(currentStreamId))
                 .thenReturn(Arrays.asList(currentActiveLease, currentStaleLease));
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 currentStreamName,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Execute
@@ -1005,11 +1024,13 @@ public class DynamoDBStreamsShardSyncerTest {
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
         when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(stream1Leases);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 MULTI_STREAM_NAME,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Execute
@@ -1139,11 +1160,13 @@ public class DynamoDBStreamsShardSyncerTest {
         when(shardDetector.streamIdentifier()).thenReturn(streamId);
         when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(streamId)).thenReturn(streamLeases);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 streamName,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Execute
@@ -1273,11 +1296,13 @@ public class DynamoDBStreamsShardSyncerTest {
         when(shardDetector.streamIdentifier()).thenReturn(SINGLE_STREAM_IDENTIFIER);
         when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(SINGLE_STREAM_IDENTIFIER)).thenReturn(streamLeases);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 MULTI_STREAM_NAME,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Execute
@@ -1406,11 +1431,13 @@ public class DynamoDBStreamsShardSyncerTest {
         when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
         when(shardDetector.listShards(anyString())).thenReturn(currentShards);
         when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(streamLeases);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
 
         DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
                 true,
                 MULTI_STREAM_NAME,
-                true
+                true,
+                streamInfoManagerMock
         );
 
         // Execute
@@ -1486,7 +1513,8 @@ public class DynamoDBStreamsShardSyncerTest {
                 childShardId2,
                 parentShardId
         );
-        DynamoDBStreamsShardSyncer shardSyncer = new DynamoDBStreamsShardSyncer(true, MULTI_STREAM_NAME, false);
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
+        DynamoDBStreamsShardSyncer shardSyncer = new DynamoDBStreamsShardSyncer(true, MULTI_STREAM_NAME, false, streamInfoManagerMock);
 
         List<Lease> currentLeases = Arrays.asList(parentLease, childLease1, childLease2);
 
