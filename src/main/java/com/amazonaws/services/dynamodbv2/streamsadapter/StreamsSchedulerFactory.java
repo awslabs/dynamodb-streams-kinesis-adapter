@@ -33,6 +33,8 @@ import software.amazon.kinesis.common.StreamConfig;
 import software.amazon.kinesis.common.StreamIdentifier;
 import software.amazon.kinesis.coordinator.CoordinatorConfig;
 import software.amazon.kinesis.coordinator.Scheduler;
+import software.amazon.kinesis.coordinator.streamInfo.StreamIdOnboardingState;
+import software.amazon.kinesis.coordinator.streamInfo.StreamInfoMode;
 import software.amazon.kinesis.leases.LeaseManagementConfig;
 import software.amazon.kinesis.lifecycle.LifecycleConfig;
 import software.amazon.kinesis.metrics.MetricsConfig;
@@ -345,6 +347,13 @@ public final class StreamsSchedulerFactory {
                 );
         leaseManagementConfig.leaseManagementFactory(dynamoDBStreamsLeaseManagementFactory);
         leaseManagementConfig.consumerTaskFactory(new DynamoDBStreamsConsumerTaskFactory());
+
+        if (!leaseManagementConfig.streamInfoMode().equals(StreamInfoMode.DISABLED) || !leaseManagementConfig.streamIdOnboardingState().equals(StreamIdOnboardingState.NOT_ONBOARDED)) {
+            log.warn("StreamInfoMode and StreamIdOnboardingState are not supported by DynamoDB Streams adapter. Overriding to DISABLED for streamInfoMode and NOT_ONBOARDED for streamIdOnboardingState.");
+        }
+
+        leaseManagementConfig.streamInfoMode(StreamInfoMode.DISABLED);
+        leaseManagementConfig.streamIdOnboardingState(StreamIdOnboardingState.NOT_ONBOARDED);
 
         if (leaseManagementConfig.leasesRecoveryAuditorInconsistencyConfidenceThreshold() > 0) {
             log.warn("leasesRecoveryAuditorInconsistencyConfidenceThreshold is greater than 0. "
