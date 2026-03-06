@@ -1,4 +1,7 @@
-### Latest Release (v2.1.1)
+### Latest Release (v2.1.2)
+* Upgrades Amazon Kinesis Client Library (KCL) to version 3.4.1.
+
+### Release (v2.1.1)
 * Fixes a bug in multi-stream mode where child shard leases were not being created properly at shard end that caused intermittent spikes in MillisBehindLatest.
 * Upgrades Amazon Kinesis Client Library (KCL) to version 3.3.0.
 

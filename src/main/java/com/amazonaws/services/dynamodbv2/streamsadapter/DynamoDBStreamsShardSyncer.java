@@ -98,6 +98,22 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      *
      * @param isMultiStreamMode Whether the syncer should operate in multi-stream mode
      * @param streamIdentifier The identifier for the stream being processed
+     * @param cleanupLeasesOfCompletedShards Whether to cleanup the leases of finished shards.
+     */
+    @Deprecated
+    public DynamoDBStreamsShardSyncer(final boolean isMultiStreamMode, final String streamIdentifier,
+                                      final boolean cleanupLeasesOfCompletedShards) {
+        this(isMultiStreamMode, streamIdentifier, cleanupLeasesOfCompletedShards, (DeletedStreamListProvider) null);
+    }
+
+    /**
+     * Constructs a DynamoDBStreamsShardSyncer that can operate in either single or multi-stream mode.
+     *
+     * @param isMultiStreamMode Whether the syncer should operate in multi-stream mode
+     * @param streamIdentifier The identifier for the stream being processed
+     * @param cleanupLeasesOfCompletedShards Whether to cleanup the leases of finished shards.
+     * @param streamInfoManager Handles the lifecycle of stream metadata (e.g., streamId) in the CoordinatorState table.
+     *
      */
     public DynamoDBStreamsShardSyncer(final boolean isMultiStreamMode, final String streamIdentifier,
                                       final boolean cleanupLeasesOfCompletedShards, final StreamInfoManager streamInfoManager) {
@@ -111,6 +127,28 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      * @param streamIdentifier The identifier for the stream being processed.
      * @param deletedStreamListProvider Provider for tracking deleted streams.
      * @param cleanupLeasesOfCompletedShards Whether to cleanup the leases of finished shards.
+     */
+    @Deprecated
+    public DynamoDBStreamsShardSyncer(final boolean isMultiStreamMode,
+                                      final String streamIdentifier,
+                                      final boolean cleanupLeasesOfCompletedShards,
+                                      final DeletedStreamListProvider deletedStreamListProvider) {
+        super(isMultiStreamMode, streamIdentifier, deletedStreamListProvider);
+        this.isMultiStreamMode = isMultiStreamMode;
+        this.streamIdentifier = streamIdentifier;
+        this.deletedStreamListProvider = deletedStreamListProvider;
+        this.cleanupLeasesOfCompletedShards = cleanupLeasesOfCompletedShards;
+        this.streamArn = KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(streamIdentifier);
+    }
+
+    /**
+     * Constructs a DynamoDBStreamsShardSyncer with support for deleted stream tracking.
+     *
+     * @param isMultiStreamMode Whether the syncer should operate in multi-stream mode.
+     * @param streamIdentifier The identifier for the stream being processed.
+     * @param deletedStreamListProvider Provider for tracking deleted streams.
+     * @param cleanupLeasesOfCompletedShards Whether to cleanup the leases of finished shards.
+     * @param streamInfoManager Handles the lifecycle of stream metadata (e.g., streamId) in the CoordinatorState table.
      */
     public DynamoDBStreamsShardSyncer(final boolean isMultiStreamMode,
                                       final String streamIdentifier,

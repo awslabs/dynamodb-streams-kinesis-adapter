@@ -99,6 +99,27 @@ public class DynamoDBStreamsLeaseManagementFactory extends DynamoDBLeaseManageme
     @Override
     public ShardSyncTaskManager createShardSyncTaskManager(MetricsFactory metricsFactory,
                                                            StreamConfig streamConfig,
+                                                           DeletedStreamListProvider deletedStreamListProvider) {
+        return new ShardSyncTaskManager(
+                this.createShardDetector(streamConfig),
+                this.createLeaseRefresher(),
+                streamConfig.initialPositionInStreamExtended(),
+                super.isCleanupLeasesUponShardCompletion(),
+                super.isIgnoreUnexpectedChildShards(),
+                super.getShardSyncIntervalMillis(),
+                super.getExecutorService(),
+                new DynamoDBStreamsShardSyncer(
+                        super.isMultiStreamMode(),
+                        streamConfig.streamIdentifier().toString(),
+                        super.isCleanupLeasesUponShardCompletion(),
+                        deletedStreamListProvider),
+                metricsFactory
+        );
+    }
+
+    @Override
+    public ShardSyncTaskManager createShardSyncTaskManager(MetricsFactory metricsFactory,
+                                                           StreamConfig streamConfig,
                                                            DeletedStreamListProvider deletedStreamListProvider,
                                                            StreamInfoManager streamInfoManager) {
         return new ShardSyncTaskManager(
