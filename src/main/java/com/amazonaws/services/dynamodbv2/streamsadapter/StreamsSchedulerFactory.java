@@ -54,6 +54,8 @@ import java.util.stream.Collectors;
 @SuppressWarnings("ParameterNumber")
 public final class StreamsSchedulerFactory {
 
+    static final String STREAM_TYPE_DYNAMODB_STREAMS = "DynamoDB_Streams";
+
     private StreamsSchedulerFactory() {}
     /**
      * Factory function for customers to create a stream tracker to consume multiple DynamoDB Streams from a single
@@ -92,7 +94,7 @@ public final class StreamsSchedulerFactory {
         List<StreamConfig> streamConfigList = dynamoDBStreamArns.stream()
                 .map(streamArn -> new StreamConfig(
                         StreamIdentifier.multiStreamInstance(createKinesisStreamIdentifierFromDynamoDBStreamsArn(
-                                streamArn, true)),
+                                streamArn, true), STREAM_TYPE_DYNAMODB_STREAMS),
                         initialPositionInStreamExtended,
                         null
                 ))
@@ -120,8 +122,11 @@ public final class StreamsSchedulerFactory {
             throw new IllegalArgumentException("Invalid Initial PositionInStream: "
                     + initialPositionInStreamExtended.getInitialPositionInStream());
         }
-        return new SingleStreamTracker(createKinesisStreamIdentifierFromDynamoDBStreamsArn(dynamoDBStreamArn,
-                false), initialPositionInStreamExtended);
+        return new SingleStreamTracker(
+                StreamIdentifier.singleStreamInstance(
+                        createKinesisStreamIdentifierFromDynamoDBStreamsArn(dynamoDBStreamArn, false),
+                        STREAM_TYPE_DYNAMODB_STREAMS),
+                initialPositionInStreamExtended);
     }
 
     /**
