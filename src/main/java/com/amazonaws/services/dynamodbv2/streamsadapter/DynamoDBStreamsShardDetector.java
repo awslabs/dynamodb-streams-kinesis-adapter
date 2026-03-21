@@ -26,6 +26,7 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.ApiName;
+import software.amazon.awssdk.services.dynamodb.model.ShardFilterType;
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
@@ -34,6 +35,7 @@ import software.amazon.awssdk.services.kinesis.model.LimitExceededException;
 import software.amazon.awssdk.services.kinesis.model.ResourceInUseException;
 import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.kinesis.model.Shard;
+import software.amazon.awssdk.services.kinesis.model.ShardFilter;
 import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.common.StreamIdentifier;
 import software.amazon.kinesis.leases.ShardDetector;
@@ -193,6 +195,37 @@ public class DynamoDBStreamsShardDetector implements ShardDetector {
     public List<Shard> listShards(String consumerId) {
         DescribeStreamResult describeStreamResult = describeStream(null, consumerId);
         return describeStreamResult.getShards();
+    }
+
+    @Override
+    public List<Shard> listShardsWithFilter(ShardFilter shardFilter, String consumerId) {
+        try {
+            AmazonDynamoDBStreamsAdapterClient dynamoDBStreamsAdapterClient;
+            if (this.kinesisAsyncClient instanceof  AmazonDynamoDBStreamsAdapterClient){
+                dynamoDBStreamsAdapterClient = (AmazonDynamoDBStreamsAdapterClient) this.kinesisAsyncClient;
+                DescribeStreamResponse describeStreamResponse = dynamoDBStreamsAdapterClient.describeStreamWithFilter(
+                        streamArn,
+                        software.amazon.awssdk.services.dynamodb.model.ShardFilter.builder()
+                                .type(ShardFilterType.CHILD_SHARDS.toString())
+                                .shardId(shardFilter.shardId())
+                                .build(),
+                        consumerId);
+                log.info("Fetched childShards for shard: " + shardFilter.shardId() + " Number of childShards are: "
+                        + describeStreamResponse.streamDescription().shards().size());
+                return describeStreamResponse.streamDescription().shards();
+            }
+        } catch (ResourceNotFoundException e) {
+            log.error("Shard not found during child-shard discovery for stream and shard: {}:{}",
+                    streamArn, shardFilter.shardId(), e);
+        } catch (LimitExceededException e) {
+            log.error("Caught limit exceeded exception while getting child shards for stream and shard: {}:{}",
+                    streamArn, shardFilter.shardId(), e);
+        } catch (Exception e) {
+            // if there is any exception, fall back to paginated DescribeStream call for shard discovery
+            log.error("Caught exception while getting child shards from stream and shard: {}:{}",
+                    streamArn, shardFilter.shardId(), e);
+        }
+        return null;
     }
 
     @Synchronized
