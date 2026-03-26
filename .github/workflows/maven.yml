@@ -40,3 +40,14 @@ jobs:
           distribution: 'corretto'
       - name: Check backwards compatibility of changes
         run: .github/scripts/backwards_compatibility_check.sh
+  kcl-compatibility-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'corretto'
+      - name: Check KCL upstream compatibility
+        run: .github/scripts/kcl_compatibility_check.sh
