@@ -14,7 +14,6 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 
-import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil.MIN_LEASE_RETENTION_DURATION_IN_HOURS;
 import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil.getShardCreationTime;
 
 import org.apache.commons.logging.Log;
@@ -58,24 +57,18 @@ public final class StreamsLeaseCleanupValidator {
             shardId = lease.leaseKey();
         }
 
-        // During child shard discovery, there might be leases which are found in child shard but describestream
-        // hasn't yet returned them, dont mark a lease as candidate for cleanup if its a new lease
-        if (Instant.now().isBefore(getShardCreationTime(shardId).plus(MIN_LEASE_RETENTION_DURATION_IN_HOURS))) {
-            return false;
-        }
-
         if (currentKinesisShardIds.contains(shardId)) {
             isCandidateForCleanup = false;
         } else {
             LOG.info(String.format("Found lease for non-existent shard: %s. Checking its parent shards", shardId));
             Set<String> parentShardIds = lease.parentShardIds();
             for (String parentShardId : parentShardIds) {
-                // Throw an exception if the parent shard exists (but the child does not).
+                // Return false if parent shard exists (but the child does not).
                 // This may be a (rare) race condition between fetching the shard list and Kinesis expiring shards.
                 if (currentKinesisShardIds.contains(parentShardId)) {
                     String message = "Parent shard " + parentShardId + " exists but not the child shard " + shardId;
                     LOG.info(message);
-                    throw new KinesisClientLibIOException(message);
+                    return false;
                 }
             }
         }
