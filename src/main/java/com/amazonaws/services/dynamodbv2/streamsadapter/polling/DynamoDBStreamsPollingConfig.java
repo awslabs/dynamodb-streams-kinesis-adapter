@@ -51,14 +51,6 @@ public class DynamoDBStreamsPollingConfig extends PollingConfig {
     @Override
     public RetrievalFactory retrievalFactory() {
         recordsFetcherFactory().idleMillisBetweenCalls(idleTimeBetweenReadsInMillis);
-        return new SynchronousBlockingRetrievalFactory(
-                streamName(),
-                kinesisClient(),
-                recordsFetcherFactory(),
-                maxRecords(),
-                kinesisRequestTimeout(),
-                dataFetcherProvider(),
-                sleepTimeController()
-        );
+        return super.retrievalFactory();
     }
 }
