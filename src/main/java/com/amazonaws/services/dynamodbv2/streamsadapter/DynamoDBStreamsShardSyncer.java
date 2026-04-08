@@ -14,8 +14,6 @@
  */
 package com.amazonaws.services.dynamodbv2.streamsadapter;
 
-import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil.MIN_LEASE_RETENTION_DURATION_IN_HOURS;
-import static com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil.getShardCreationTime;
 import static software.amazon.kinesis.common.HashKeyRangeForLease.fromHashKeyRange;
 import static java.util.Objects.nonNull;
 
@@ -32,6 +30,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.kinesis.model.Shard;
+import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.common.StreamIdentifier;
@@ -43,6 +42,7 @@ import software.amazon.kinesis.leases.Lease;
 import software.amazon.kinesis.leases.LeaseRefresher;
 import software.amazon.kinesis.leases.MultiStreamLease;
 import software.amazon.kinesis.leases.ShardDetector;
+import software.amazon.kinesis.leases.UpdateField;
 import software.amazon.kinesis.leases.exceptions.DependencyException;
 import software.amazon.kinesis.leases.exceptions.InvalidStateException;
 import software.amazon.kinesis.leases.exceptions.ProvisionedThroughputException;
@@ -52,7 +52,6 @@ import software.amazon.kinesis.metrics.MetricsUtil;
 import software.amazon.kinesis.retrieval.kpl.ExtendedSequenceNumber;
 import java.io.Serializable;
 import java.math.BigInteger;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -242,10 +241,12 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
             trackedLeases.addAll(currentLeases);
         }
         trackedLeases.addAll(newLeasesToCreate);
-        cleanupGarbageLeases(shards, trackedLeases, shardDetector, leaseRefresher, multiStreamArgs);
+        LOG.info("syncShardLeases " + streamArn  + ": cleanup begins");
+        Map<String, Lease> deletedLeases = cleanupGarbageLeases(shards, trackedLeases, shardDetector, leaseRefresher,
+                multiStreamArgs);
         if (cleanupLeasesOfCompletedShards) {
-            cleanupLeasesOfFinishedShards(currentLeases, shardIdToShardMap, shardIdToChildShardIdsMap,
-                    trackedLeases, leaseRefresher, multiStreamArgs);
+            cleanupLeasesOfFinishedShards(currentLeases, shardIdToShardMap, shardIdToChildShardIdsMap, trackedLeases,
+                    deletedLeases, leaseRefresher, multiStreamArgs);
         }
         MetricsUtil.addLatency(scope, "ShardSyncLatency:" + streamArn, startTimeMillis, MetricsLevel.SUMMARY);
         LOG.info("syncShardLeases: " + streamArn  + ": end");
@@ -506,7 +507,7 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
         return isDescendant;
     }
 
-    private void cleanupGarbageLeases(List<Shard> shards,
+    private Map<String, Lease> cleanupGarbageLeases(List<Shard> shards,
                                       List<Lease> trackedLeases,
                                       ShardDetector shardDetector,
                                       LeaseRefresher leaseRefresher,
@@ -551,6 +552,10 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
             }
         }
         LOG.info("cleanupGarbageLeases " + streamArn + ": done");
+        return garbageLeases.stream()
+                .collect(Collectors.toMap(
+                        lease -> SHARD_ID_FROM_LEASE_DEDUCER.apply(lease, multiStreamArgs),
+                        lease -> lease));
     }
 
     /**
@@ -565,6 +570,7 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      * @param shardIdToChildShardIdsMap Map of shardId->childShardIds (assumed to include all Kinesis shards)
      * @param trackedLeases List of all leases we are tracking.
      * @param leaseRefresher Lease manager (will be used to delete leases)
+     * @param deletedLeases Map of leaseKey -> Lease of deleted leases for tracking.
      * @throws DependencyException
      * @throws InvalidStateException
      * @throws ProvisionedThroughputException
@@ -574,6 +580,7 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                                                             Map<String, Shard> shardIdToShardMap,
                                                             Map<String, Set<String>> shardIdToChildShardIdsMap,
                                                             List<Lease> trackedLeases,
+                                                            Map<String, Lease> deletedLeases,
                                                             LeaseRefresher leaseRefresher,
                                                             MultiStreamArgs multiStreamArgs)
             throws DependencyException, InvalidStateException, ProvisionedThroughputException {
@@ -595,12 +602,14 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                     = new StartingSequenceNumberAndShardIdBasedComparator(shardIdToShardMap, multiStreamArgs);
             leasesOfClosedShards.sort(startingSequenceNumberComparator);
             Map<String, Lease> trackedLeaseMap = constructShardIdToKCLLeaseMap(trackedLeases, multiStreamArgs);
-
+            LOG.info("cleanupLeasesOfFinishedShards " + streamArn + ": Found closed shards to clean: "
+                    + leasesOfClosedShards.size() );
             for (Lease leaseOfClosedShard : leasesOfClosedShards) {
                 String closedShardId = SHARD_ID_FROM_LEASE_DEDUCER.apply(leaseOfClosedShard, multiStreamArgs);
                 Set<String> childShardIds = shardIdToChildShardIdsMap.get(closedShardId);
                 if ((closedShardId != null) && (childShardIds != null) && (!childShardIds.isEmpty())) {
-                    cleanupLeaseForClosedShard(closedShardId, childShardIds, trackedLeaseMap, leaseRefresher,
+                    LOG.info("cleanupLeasesOfFinishedShards Found closed shard to clean: " + closedShardId );
+                    cleanupLeaseForClosedShard(closedShardId, trackedLeaseMap, deletedLeases, leaseRefresher,
                             multiStreamArgs);
                 }
             }
@@ -611,65 +620,73 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
     /**
      * Delete lease for the closed shard. Rules for deletion are:
      * a/ the checkpoint for the closed shard is SHARD_END,
-     * b/ there are leases for all the childShardIds and their checkpoint is also SHARD_END
-     * c/ the shard has existed longer than the minimum lease retention duration (6 hours)
-     *The lease retention duration ensures that we don't prematurely delete leases for shards
-     *that might still be needed for stream position recovery
+     * b/ the lease contains child-shard IDs (populated during shard-end processing),
+     * c/ there are leases for all the childShardIds and they have begun/finished processing
+     *    i.e. their checkpoint is not TRIM_HORIZON,
+     * d/ all parent shard leases have been deleted first (parent-before-child ordering).
+     *
      * Note: This method has package level access solely for testing purposes.
      *
      * @param closedShardId Identifies the closed shard
-     * @param childShardIds ShardIds of children of the closed shard
      * @param trackedLeases shardId->KinesisClientLease map with all leases we are tracking (should not be null)
+     * @param deletedLeases Map of leaseKey -> deleted leases for tracking deletion ordering within the same sync cycle.
      * @param leaseRefresher
      * @throws ProvisionedThroughputException
      * @throws InvalidStateException
      * @throws DependencyException
      */
     synchronized void cleanupLeaseForClosedShard(String closedShardId,
-                                                 Set<String> childShardIds,
                                                  Map<String, Lease> trackedLeases,
+                                                 Map<String, Lease> deletedLeases,
                                                  LeaseRefresher leaseRefresher,
                                                  MultiStreamArgs multiStreamArgs)
             throws DependencyException, InvalidStateException, ProvisionedThroughputException {
         Lease leaseForClosedShard = trackedLeases.get(closedShardId);
+        if  (leaseForClosedShard == null) return;
         List<Lease> childShardLeases = new ArrayList<>();
-
+        Set<String> childShardIds = leaseForClosedShard.childShardIds();
+        if (childShardIds == null || childShardIds.isEmpty()) {
+            LOG.info("cleanupLeasesOfFinishedShards ChildShards not found for closed shard to clean: " + closedShardId);
+            return;
+        }
         for (String childShardId : childShardIds) {
             Lease childLease = trackedLeases.get(childShardId);
             if (childLease != null) {
                 childShardLeases.add(childLease);
             }
         }
-
-        if ((leaseForClosedShard != null)
-                && (leaseForClosedShard.checkpoint().equals(ExtendedSequenceNumber.SHARD_END))
+        if (leaseForClosedShard.checkpoint().equals(ExtendedSequenceNumber.SHARD_END)
                 && (childShardLeases.size() == childShardIds.size())) {
             boolean okayToDelete = true;
             for (Lease lease : childShardLeases) {
-                if (!lease.checkpoint().equals(ExtendedSequenceNumber.SHARD_END)) {
+                if (lease.checkpoint().equals(ExtendedSequenceNumber.TRIM_HORIZON)) {
                     okayToDelete = false; // if any child is still being processed, don't delete lease for parent
                     break;
                 }
             }
-
-            try {
-                if (Instant.now().isBefore(getShardCreationTime(closedShardId)
-                        .plus(MIN_LEASE_RETENTION_DURATION_IN_HOURS))) {
-                    // if parent was created within lease retention period, don't delete lease for parent
-                    okayToDelete = false;
+            // if parent lease still exists then the lease will not be cleaned.
+            Set<String> parentShardIdsOfClosedLease = leaseForClosedShard.parentShardIds();
+            if (!CollectionUtils.isNullOrEmpty(parentShardIdsOfClosedLease)) {
+                for (String parentShardIdOfClosedLease : parentShardIdsOfClosedLease) {
+                    Lease parentLeaseInTable = trackedLeases.get(parentShardIdOfClosedLease);
+                    Lease parentLeaseInDeletedList = deletedLeases.get(parentShardIdOfClosedLease);
+                    if (parentLeaseInTable != null && parentLeaseInDeletedList == null) {
+                        LOG.info("parent lease " + parentShardIdOfClosedLease + " should be cleaned up before " +
+                                "child lease " + closedShardId);
+                        okayToDelete = false; // parent should be cleaned before child lease
+                        break;
+                    }
                 }
-            } catch (RuntimeException e) {
-                LOG.info("Could not extract creation time from ShardId [" + closedShardId + "] " + streamArn);
-                LOG.debug(e);
             }
 
             if (okayToDelete) {
                 LOG.info("Deleting lease for shard " + SHARD_ID_FROM_LEASE_DEDUCER.apply(leaseForClosedShard,
                         multiStreamArgs) + " as it is eligible for cleanup - its child shard is check-pointed at "
-                        + "SHARD_END for the stream "
+                        + leaseForClosedShard.checkpoint() + " for the stream "
                         + streamArn
                 );
                 leaseRefresher.deleteLease(leaseForClosedShard);
+                deletedLeases.put(closedShardId, leaseForClosedShard);
             }
         }
     }
@@ -697,18 +714,10 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      */
     synchronized void assertClosedShardsAreCoveredOrAbsent(Map<String, Shard> shardIdToShardMap,
                                                            Map<String, Set<String>> shardIdToChildShardIdsMap,
-                                                           Set<String> shardIdsOfClosedShards) throws
-            KinesisClientLibIOException {
-        String exceptionMessageSuffix = "This can happen if we constructed the list of shards "
-                + " while a reshard operation was in progress.";
+                                                           Set<String> shardIdsOfClosedShards) {
 
         for (String shardId : shardIdsOfClosedShards) {
             Shard shard = shardIdToShardMap.get(shardId);
-            if (Instant.now().isBefore(getShardCreationTime(shardId).plus(MIN_LEASE_RETENTION_DURATION_IN_HOURS))) {
-                LOG.info("Delaying deleting Shard " + shardId + " till lease retention duration is reached. "
-                        + streamArn);
-                continue; // if parent was created within lease retention period, don't delete lease for parent
-            }
             if (shard == null) {
                 LOG.info("Shard " + shardId + " is not present in stream " + streamArn + "anymore.");
                 continue;
@@ -716,14 +725,13 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
 
             String endingSequenceNumber = shard.sequenceNumberRange().endingSequenceNumber();
             if (endingSequenceNumber == null) {
-                throw new KinesisClientLibIOException("Shard " + shardId
-                        + " is not closed. " + exceptionMessageSuffix);
+                shardIdToChildShardIdsMap.remove(shardId);
+                continue;
             }
 
             Set<String> childShardIds = shardIdToChildShardIdsMap.get(shardId);
             if (childShardIds == null) {
-                throw new KinesisClientLibIOException("Incomplete shard list: Closed shard " + shardId
-                        + " has no children." + exceptionMessageSuffix);
+                shardIdToChildShardIdsMap.remove(shardId);
             }
         }
     }
