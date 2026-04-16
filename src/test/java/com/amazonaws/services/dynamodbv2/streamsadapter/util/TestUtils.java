@@ -25,6 +25,7 @@ import software.amazon.kinesis.leases.MultiStreamLease;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public class TestUtils {
 
@@ -221,12 +222,14 @@ public class TestUtils {
     public static MultiStreamLease createCompletedLease(
             String streamArn,
             String shardId,
-            String parentShardId) {
+            String parentShardId,
+            Set<String> childShardIds) {
         return createTestLease(
                 streamArn,
                 shardId,
                 ExtendedSequenceNumber.SHARD_END,
-                parentShardId
+                parentShardId,
+                childShardIds
         );
     }
 
@@ -248,7 +251,8 @@ public class TestUtils {
                 streamArn,
                 shardId,
                 new ExtendedSequenceNumber(sequenceNumber),
-                parentShardId
+                parentShardId,
+                null
         );
     }
 
@@ -265,7 +269,8 @@ public class TestUtils {
             String streamArn,
             String shardId,
             ExtendedSequenceNumber checkpoint,
-            String parentShardId) {
+            String parentShardId,
+            Set<String> childShardIds) {
         MultiStreamLease lease = new MultiStreamLease();
         lease.leaseKey(MultiStreamLease.getLeaseKey(streamArn, shardId));
         lease.streamIdentifier(streamArn);
@@ -274,6 +279,8 @@ public class TestUtils {
         lease.parentShardIds(parentShardId != null ?
                 Collections.singletonList(parentShardId) :
                 Collections.emptyList());
+        lease.childShardIds(childShardIds != null ?
+                childShardIds : Collections.emptyList());
         return lease;
     }
 
