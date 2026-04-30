@@ -1,4 +1,8 @@
-### Latest Release (v2.1.2)
+### Latest Release (v2.2.0)
+* Improves lease cleanup efficiency by removing the 6-hour retention period check.
+* Delegates retrieval factory creation to the PollingConfig base class, reducing code duplication.
+
+### Release (v2.1.2)
 * Upgrades Amazon Kinesis Client Library (KCL) to version 3.4.1.
 
 ### Release (v2.1.1)
