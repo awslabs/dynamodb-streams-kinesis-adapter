@@ -123,6 +123,8 @@ class StreamsSchedulerFactoryTest {
 
         assertEquals(2, configs.size());
         assertEquals(deletionStrategy, multiStreamTracker.formerStreamsLeasesDeletionStrategy());
+        configs.forEach(config -> assertEquals(StreamsSchedulerFactory.STREAM_TYPE_DYNAMODB_STREAMS,
+                config.streamIdentifier().streamType()));
     }
 
     @Test
@@ -198,6 +200,8 @@ class StreamsSchedulerFactoryTest {
 
         assertNotNull(tracker);
         assertTrue(tracker.isMultiStream() == false);
+        assertEquals(StreamsSchedulerFactory.STREAM_TYPE_DYNAMODB_STREAMS,
+                tracker.streamConfigList().get(0).streamIdentifier().streamType());
     }
 
     @Test
