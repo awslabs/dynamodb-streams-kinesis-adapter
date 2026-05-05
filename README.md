@@ -37,7 +37,7 @@ Add the following to your Maven pom file:
 <dependency>
    <groupId>com.amazonaws</groupId>
    <artifactId>dynamodb-streams-kinesis-adapter</artifactId>
-   <version>2.2.0</version>
+   <version>2.3.0</version>
 </dependency>
 ```
 

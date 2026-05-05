@@ -1,4 +1,8 @@
-### Latest Release (v2.2.0)
+### Latest Release (v2.3.0)
+* Upgrades Amazon Kinesis Client Library (KCL) to version 3.4.3.
+* Set StreamType to suppress hash range validation ERROR logs for DynamoDB Streams.
+
+### Release (v2.2.0)
 * Improves lease cleanup efficiency by removing the 6-hour retention period check.
 * Delegates retrieval factory creation to the PollingConfig base class, reducing code duplication.
 
