@@ -45,8 +45,14 @@ import software.amazon.kinesis.retrieval.GetRecordsResponseAdapter;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -281,6 +287,71 @@ class AmazonDynamoDBStreamsAdapterClientTest {
     void testClose() {
         adapterClient.close();
         verify(dynamoDbStreamsClient).close();
+    }
+
+    @Test
+    void testGetDynamoDBStreamsRecordsRunsOnProvidedExecutor() throws Exception {
+        ThreadFactory tf = r -> {
+            Thread t = new Thread(r, "custom-getrecords-executor");
+            t.setDaemon(true);
+            return t;
+        };
+        ExecutorService customExecutor = Executors.newSingleThreadExecutor(tf);
+        try {
+            AmazonDynamoDBStreamsAdapterClient clientWithExecutor =
+                    new AmazonDynamoDBStreamsAdapterClient(dynamoDbStreamsClient, region, customExecutor);
+
+            AtomicReference<String> threadNameSeen = new AtomicReference<>();
+            when(dynamoDbStreamsClient.getRecords(any(GetRecordsRequest.class)))
+                    .thenAnswer(invocation -> {
+                        threadNameSeen.set(Thread.currentThread().getName());
+                        return GetRecordsResponse.builder()
+                                .records(Collections.emptyList())
+                                .nextShardIterator("next-" + ITERATOR)
+                                .build();
+                    });
+
+            GetRecordsRequest kinesisRequest = GetRecordsRequest.builder()
+                    .shardIterator(ITERATOR)
+                    .limit(100)
+                    .build();
+
+            clientWithExecutor.getDynamoDBStreamsRecords(kinesisRequest).join();
+
+            assertEquals("custom-getrecords-executor", threadNameSeen.get());
+
+            clientWithExecutor.close();
+            assertFalse(customExecutor.isShutdown());
+        } finally {
+            customExecutor.shutdownNow();
+            customExecutor.awaitTermination(5, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void testGetDynamoDBStreamsRecordsDefaultsToCommonPool() throws Exception {
+        AmazonDynamoDBStreamsAdapterClient defaultClient =
+                new AmazonDynamoDBStreamsAdapterClient(dynamoDbStreamsClient, region);
+
+        AtomicReference<Thread> threadSeen = new AtomicReference<>();
+        when(dynamoDbStreamsClient.getRecords(any(GetRecordsRequest.class)))
+                .thenAnswer(invocation -> {
+                    threadSeen.set(Thread.currentThread());
+                    return GetRecordsResponse.builder()
+                            .records(Collections.emptyList())
+                            .nextShardIterator("next-" + ITERATOR)
+                            .build();
+                });
+
+        GetRecordsRequest kinesisRequest = GetRecordsRequest.builder()
+                .shardIterator(ITERATOR)
+                .limit(100)
+                .build();
+
+        defaultClient.getDynamoDBStreamsRecords(kinesisRequest).join();
+
+        assertNotNull(threadSeen.get());
+        assertTrue(threadSeen.get().getName().contains("ForkJoinPool.commonPool"));
     }
     
     @Test

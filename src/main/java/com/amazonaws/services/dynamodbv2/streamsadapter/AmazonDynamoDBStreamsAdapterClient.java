@@ -53,8 +53,11 @@ import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 
 @Slf4j
 public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
@@ -84,6 +87,8 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     private final DynamoDbStreamsClient internalClient;
     private final Sleeper sleeper;
 
+    private final Executor getRecordsExecutor;
+
     /**
      * Recommended constructor for {@link AmazonDynamoDBStreamsAdapterClient} which takes in the aws credentials and
      * the region where the DynamoDB Stream will be consumed from.
@@ -111,6 +116,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
                 .build();
         this.region = region;
         this.sleeper = new Sleeper();
+        this.getRecordsExecutor = ForkJoinPool.commonPool();
     }
 
     /**
@@ -129,12 +135,25 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
         internalClient = dynamoDbStreamsClient;
         this.region = region;
         this.sleeper = new Sleeper();
+        this.getRecordsExecutor = ForkJoinPool.commonPool();
+    }
+
+    public AmazonDynamoDBStreamsAdapterClient(
+            DynamoDbStreamsClient dynamoDbStreamsClient,
+            Region region,
+            Executor getRecordsExecutor) {
+        this.internalClient = dynamoDbStreamsClient;
+        this.region = region;
+        this.sleeper = new Sleeper();
+        this.getRecordsExecutor = Objects.requireNonNull(
+                getRecordsExecutor, "getRecordsExecutor must not be null");
     }
 
     @VisibleForTesting
     protected AmazonDynamoDBStreamsAdapterClient(DynamoDbStreamsClient client) {
         this.internalClient = client;
         this.sleeper = new Sleeper();
+        this.getRecordsExecutor = ForkJoinPool.commonPool();
     }
 
     /**
@@ -303,7 +322,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
                         skipRecordsBehavior);
             }
             return new DynamoDBStreamsGetRecordsResponseAdapter(result);
-        });
+        }, getRecordsExecutor);
     }
 
     public DescribeStreamResponse describeStreamWithFilter(String streamArn, ShardFilter shardFilter,
