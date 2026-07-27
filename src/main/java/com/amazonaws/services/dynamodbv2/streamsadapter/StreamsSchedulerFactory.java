@@ -360,6 +360,7 @@ public final class StreamsSchedulerFactory {
         leaseManagementConfig.streamInfoMode(StreamInfoMode.DISABLED);
         leaseManagementConfig.streamIdOnboardingState(StreamIdOnboardingState.NOT_ONBOARDED);
 
+
         if (leaseManagementConfig.leasesRecoveryAuditorInconsistencyConfidenceThreshold() > 0) {
             log.warn("leasesRecoveryAuditorInconsistencyConfidenceThreshold is greater than 0. "
                     + "DynamoDB Streams adapter does not do hole tracking. Setting this to 0.");
