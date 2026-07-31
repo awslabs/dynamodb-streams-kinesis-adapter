@@ -1,4 +1,7 @@
-### Latest Release (v2.3.0)
+### Latest Release (v2.4.0)
+* Upgrades Amazon Kinesis Client Library (KCL) to version 3.5.0.
+
+### Release (v2.3.0)
 * Upgrades Amazon Kinesis Client Library (KCL) to version 3.4.3.
 * Set StreamType to suppress hash range validation ERROR logs for DynamoDB Streams.
 
