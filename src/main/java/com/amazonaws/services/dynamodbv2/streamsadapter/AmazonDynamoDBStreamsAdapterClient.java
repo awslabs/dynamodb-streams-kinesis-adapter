@@ -165,7 +165,7 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
             software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest describeStreamRequest)
             throws AwsServiceException, SdkClientException {
         String consumerId = getConsumerId(describeStreamRequest.overrideConfiguration());
-        return CompletableFuture.supplyAsync(() -> {
+        try {
             DescribeStreamRequest ddbDescribeStreamRequest =
                     DynamoDBStreamsRequestsBuilder.describeStreamRequestBuilder(consumerId)
                             .streamArn(describeStreamRequest.streamName())
@@ -173,14 +173,14 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
                             .exclusiveStartShardId(describeStreamRequest.exclusiveStartShardId())
                             .build();
 
-            software.amazon.awssdk.services.dynamodb.model.DescribeStreamResponse result;
-            try {
-                result = describeStreamWithRetries(ddbDescribeStreamRequest);
-            } catch (AwsServiceException e) {
-                throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisDescribeStream(e);
-            }
-            return KinesisMapperUtil.convertDynamoDBDescribeStreamResponseToKinesisDescribeStreamResponse(result);
-        });
+            software.amazon.awssdk.services.dynamodb.model.DescribeStreamResponse result =
+                    describeStreamWithRetries(ddbDescribeStreamRequest);
+            return CompletableFuture.completedFuture(
+                    KinesisMapperUtil.convertDynamoDBDescribeStreamResponseToKinesisDescribeStreamResponse(result));
+        } catch (AwsServiceException e) {
+            return failedFuture(
+                    AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisDescribeStream(e));
+        }
     }
 
     private String getConsumerId(Optional<AwsRequestOverrideConfiguration> overrideConfiguration) {
@@ -203,7 +203,11 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     @Override
     public CompletableFuture<GetShardIteratorResponse> getShardIterator(GetShardIteratorRequest getShardIteratorRequest)
             throws AwsServiceException, SdkClientException {
-        return CompletableFuture.supplyAsync(() -> getShardIteratorResponse(getShardIteratorRequest));
+        try {
+            return CompletableFuture.completedFuture(getShardIteratorResponse(getShardIteratorRequest));
+        } catch (AwsServiceException e) {
+            return failedFuture(e);
+        }
     }
 
     private GetShardIteratorResponse getShardIteratorResponse(GetShardIteratorRequest getShardIteratorRequest)
@@ -260,22 +264,21 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     @Override
     public CompletableFuture<ListStreamsResponse> listStreams(ListStreamsRequest listStreamsRequest)
             throws AwsServiceException, SdkClientException {
-        return CompletableFuture.supplyAsync(() -> {
+        try {
             software.amazon.awssdk.services.dynamodb.model.ListStreamsRequest ddbListStreamsRequest =
                     DynamoDBStreamsRequestsBuilder.listStreamsRequestBuilder()
                             .limit(listStreamsRequest.limit())
                             .exclusiveStartStreamArn(listStreamsRequest.exclusiveStartStreamName())
                             .build();
-            try {
-                software.amazon.awssdk.services.dynamodb.model.ListStreamsResponse listStreamsResponse =
-                        internalClient.listStreams(ddbListStreamsRequest);
-                return KinesisMapperUtil.convertDynamoDBListStreamsResponseToKinesisListStreamsResponse(
-                        listStreamsResponse);
-            } catch (AwsServiceException e) {
-                throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisListStreams(
-                        e);
-            }
-        });
+            software.amazon.awssdk.services.dynamodb.model.ListStreamsResponse listStreamsResponse =
+                    internalClient.listStreams(ddbListStreamsRequest);
+            return CompletableFuture.completedFuture(
+                    KinesisMapperUtil.convertDynamoDBListStreamsResponseToKinesisListStreamsResponse(
+                            listStreamsResponse));
+        } catch (AwsServiceException e) {
+            return failedFuture(
+                    AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisListStreams(e));
+        }
     }
 
     /**
@@ -294,16 +297,15 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     public CompletableFuture<DynamoDBStreamsGetRecordsResponseAdapter> getDynamoDBStreamsRecords(
             software.amazon.awssdk.services.dynamodb.model.GetRecordsRequest ddbGetRecordsRequest
     ) throws AwsServiceException, SdkClientException {
-        return CompletableFuture.supplyAsync(() -> {
-            software.amazon.awssdk.services.dynamodb.model.GetRecordsResponse result;
-            try {
-                result = internalClient.getRecords(ddbGetRecordsRequest);
-            } catch (AwsServiceException e) {
-                throw AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(e,
-                        skipRecordsBehavior);
-            }
-            return new DynamoDBStreamsGetRecordsResponseAdapter(result);
-        });
+        try {
+            software.amazon.awssdk.services.dynamodb.model.GetRecordsResponse result =
+                    internalClient.getRecords(ddbGetRecordsRequest);
+            return CompletableFuture.completedFuture(new DynamoDBStreamsGetRecordsResponseAdapter(result));
+        } catch (AwsServiceException e) {
+            return failedFuture(
+                    AmazonServiceExceptionTransformer.transformDynamoDBStreamsToKinesisGetRecords(e,
+                            skipRecordsBehavior));
+        }
     }
 
     public DescribeStreamResponse describeStreamWithFilter(String streamArn, ShardFilter shardFilter,
@@ -335,6 +337,15 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
             throw new NullPointerException("skipRecordsBehavior cannot be null");
         }
         this.skipRecordsBehavior = skipRecordsBehavior;
+    }
+
+    /**
+     * Java 8 compatible alternative to CompletableFuture.failedFuture() (added in Java 9).
+     */
+    private static <T> CompletableFuture<T> failedFuture(Throwable ex) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        future.completeExceptionally(ex);
+        return future;
     }
 
     private software.amazon.awssdk.services.dynamodb.model.DescribeStreamResponse describeStreamWithRetries(
