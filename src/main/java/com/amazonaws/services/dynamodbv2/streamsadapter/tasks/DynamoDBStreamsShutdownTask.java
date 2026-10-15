@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.kinesis.model.Shard;
 import software.amazon.awssdk.services.kinesis.model.ShardFilter;
 import software.amazon.awssdk.utils.CollectionUtils;
 import software.amazon.kinesis.checkpoint.ShardRecordProcessorCheckpointer;
+import software.amazon.kinesis.common.InitialPositionInStream;
 import software.amazon.kinesis.common.InitialPositionInStreamExtended;
 import software.amazon.kinesis.common.StreamIdentifier;
 import software.amazon.kinesis.leases.HierarchicalShardSyncer;
@@ -354,6 +355,15 @@ public class DynamoDBStreamsShutdownTask implements ConsumerTask {
                         leaseKey);
                 final Lease leaseToCreate = dynamoDBStreamsShardSyncer
                         .createLeaseForChildShard(childShard, streamIdentifier);
+                // KCL checkpoints child shard leases at TRIM_HORIZON, which assumes the parent shard was
+                // read to its end. Under AT_TIMESTAMP that assumption can fail: a parent whose records all
+                // predate the requested timestamp reaches SHARD_END without consuming anything, and starting
+                // its child at TRIM_HORIZON would deliver records from before the timestamp. Start the child
+                // at the timestamp instead, which is also correct for a child created long after it.
+                if (InitialPositionInStream.AT_TIMESTAMP
+                        == initialPositionInStream.getInitialPositionInStream()) {
+                    leaseToCreate.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+                }
                 final long startTime = System.currentTimeMillis();
                 boolean success = false;
                 try {

@@ -42,7 +42,6 @@ import software.amazon.kinesis.leases.Lease;
 import software.amazon.kinesis.leases.LeaseRefresher;
 import software.amazon.kinesis.leases.MultiStreamLease;
 import software.amazon.kinesis.leases.ShardDetector;
-import software.amazon.kinesis.leases.UpdateField;
 import software.amazon.kinesis.leases.exceptions.DependencyException;
 import software.amazon.kinesis.leases.exceptions.InvalidStateException;
 import software.amazon.kinesis.leases.exceptions.ProvisionedThroughputException;
@@ -232,7 +231,12 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                 }
                 MetricsUtil.addSuccessAndLatency(scope, "CreateLease", success, leaseCreationStartTimeMillis,
                         MetricsLevel.DETAILED);
-
+                if (lease.checkpoint() != null) {
+                    final String metricName = lease.checkpoint().isSentinelCheckpoint()
+                            ? lease.checkpoint().sequenceNumber()
+                            : "SEQUENCE_NUMBER";
+                    MetricsUtil.addSuccess(scope, "CreateLease_" + metricName, success, MetricsLevel.DETAILED);
+                }
             }
         }
 
@@ -325,7 +329,7 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      * 1. If there are no leases for a shard, create a lease if:
      *    - The shard is a descendant of an existing lease (checkpoint will be TRIM_HORIZON), or
      *    - The initial position is TRIM_HORIZON (checkpoint will be TRIM_HORIZON), or
-     *    - The initial position is LATEST (checkpoint will be that position)
+     *    - The initial position is LATEST or AT_TIMESTAMP (checkpoint will be that position)
      *
      * 2. For each open (no ending sequence number) shard without a lease:
      *    - Determine if it's a descendant of any current shard
@@ -333,9 +337,17 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
      *    - The checkpoint for new leases will be determined based on whether they are
      *      descendants and the initial position specified
      *
+     * AT_TIMESTAMP uses this same path for both the initial and the periodic sync, exactly as TRIM_HORIZON
+     * and LATEST do. It behaves like TRIM_HORIZON structurally: a shard whose lineage no lease covers is
+     * treated as a descendant, so the ancestor walk leases the whole lineage of every open shard. Only the
+     * checkpoint differs. Every lease created here gets AT_TIMESTAMP, whether or not the shard descends from
+     * an already-leased shard, because a descendant cannot assume its ancestor consumed anything: that
+     * ancestor's lease may itself still be sitting unprocessed at AT_TIMESTAMP. See
+     * {@link #isInitialPositionInStreamAtTimestamp} for the full reasoning.
+     *
      * @param shards List of all shards in the stream from the DescribeStream call
      * @param currentLeases List of current leases from the lease table
-     * @param initialPosition The initial position specified for processing (LATEST/TRIM_HORIZON)
+     * @param initialPosition The initial position specified for processing (LATEST/TRIM_HORIZON/AT_TIMESTAMP)
      * @param inconsistentShardIds Set of shard IDs that are identified as inconsistent
      *                            (e.g., open child shards with open parents)
      * @param multiStreamArgs Container for multi-stream mode configuration and stream identifier
@@ -388,9 +400,11 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                                 multiStreamArgs);
 
                 /**
-                 * If the shard is a descendant checkpoint will always be TRIM_HORIZON
+                 * If the shard is a descendant checkpoint will always be TRIM_HORIZON, except under
+                 * AT_TIMESTAMP where every newly created lease starts at the requested timestamp. See
+                 * {@link #isInitialPositionInStreamAtTimestamp}.
                  */
-                if (isDescendant) {
+                if (isDescendant && !isInitialPositionInStreamAtTimestamp(initialPosition)) {
                     newLease.checkpoint(ExtendedSequenceNumber.TRIM_HORIZON);
                 } else {
                     newLease.checkpoint(convertToCheckpoint(initialPosition));
@@ -485,7 +499,8 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                                 shardIdToLeaseMapOfNewShards.put(parentShardId, lease);
                             }
 
-                            if (descendantParentShardIds.contains(parentShardId)) {
+                            if (descendantParentShardIds.contains(parentShardId)
+                                    && !isInitialPositionInStreamAtTimestamp(initialPosition)) {
                                 lease.checkpoint(ExtendedSequenceNumber.TRIM_HORIZON);
                             } else {
                                 lease.checkpoint(convertToCheckpoint(initialPosition));
@@ -493,9 +508,15 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                         }
                     }
                 } else {
-                    // This shard should be included, if the customer wants to process all records in the stream
+                    // This shard should be included, if the customer wants to process all records in the stream.
+                    // AT_TIMESTAMP is included alongside TRIM_HORIZON so that the ancestor walk leases the
+                    // whole lineage of every open shard: the requested timestamp may fall inside a shard that
+                    // has already closed, and that shard only gets a lease by being walked to from its open
+                    // descendant. LATEST is excluded because it only ever needs the open shards.
                     if (initialPosition.getInitialPositionInStream().equals(software.amazon.kinesis.common
-                            .InitialPositionInStream.TRIM_HORIZON)) {
+                            .InitialPositionInStream.TRIM_HORIZON)
+                            || initialPosition.getInitialPositionInStream().equals(software.amazon.kinesis.common
+                            .InitialPositionInStream.AT_TIMESTAMP)) {
                         isDescendant = true;
                     }
                 }
@@ -659,7 +680,8 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
                 && (childShardLeases.size() == childShardIds.size())) {
             boolean okayToDelete = true;
             for (Lease lease : childShardLeases) {
-                if (lease.checkpoint().equals(ExtendedSequenceNumber.TRIM_HORIZON)) {
+                if (lease.checkpoint().equals(ExtendedSequenceNumber.TRIM_HORIZON)
+                        || lease.checkpoint().equals(ExtendedSequenceNumber.AT_TIMESTAMP)) {
                     okayToDelete = false; // if any child is still being processed, don't delete lease for parent
                     break;
                 }
@@ -756,11 +778,18 @@ public class DynamoDBStreamsShardSyncer extends HierarchicalShardSyncer {
         return parentShardIds;
     }
 
+    private static boolean isInitialPositionInStreamAtTimestamp(
+            final InitialPositionInStreamExtended position) {
+        return position.getInitialPositionInStream().equals(InitialPositionInStream.AT_TIMESTAMP);
+    }
+
     private static ExtendedSequenceNumber convertToCheckpoint(final InitialPositionInStreamExtended position) {
         ExtendedSequenceNumber checkpoint = null;
 
         if (position.getInitialPositionInStream().equals(InitialPositionInStream.TRIM_HORIZON)) {
             checkpoint = ExtendedSequenceNumber.TRIM_HORIZON;
+        } else if (position.getInitialPositionInStream().equals(InitialPositionInStream.AT_TIMESTAMP)) {
+            checkpoint = ExtendedSequenceNumber.AT_TIMESTAMP;
         } else {
             checkpoint = ExtendedSequenceNumber.LATEST;
         }

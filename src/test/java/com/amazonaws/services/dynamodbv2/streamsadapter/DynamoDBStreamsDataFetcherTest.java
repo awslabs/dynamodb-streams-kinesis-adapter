@@ -137,6 +137,50 @@ public class DynamoDBStreamsDataFetcherTest {
     }
 
     @Test
+    void testInitializeWithAtTimestamp() {
+        // An AT_TIMESTAMP lease must translate into an AT_TIMESTAMP GetShardIterator carrying the
+        // configured timestamp. This is the only mechanism the adapter uses to honour the position.
+        java.util.Date timestamp = new java.util.Date(1779356409031L);
+        InitialPositionInStreamExtended position =
+                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(timestamp);
+
+        ArgumentCaptor<GetShardIteratorRequest> captor = ArgumentCaptor.forClass(GetShardIteratorRequest.class);
+        when(amazonDynamoDBStreamsAdapterClient.getShardIterator(captor.capture()))
+                .thenReturn(CompletableFuture.supplyAsync(() ->
+                        GetShardIteratorResponse.builder().shardIterator(ITERATOR).build()));
+
+        dynamoDBStreamsDataFetcher.initialize(ExtendedSequenceNumber.AT_TIMESTAMP, position);
+
+        assertTrue(dynamoDBStreamsDataFetcher.isInitialized());
+        assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP.sequenceNumber(),
+                dynamoDBStreamsDataFetcher.getLastKnownSequenceNumber());
+        assertEquals(ITERATOR, dynamoDBStreamsDataFetcher.getNextIterator());
+
+        GetShardIteratorRequest request = captor.getValue();
+        assertEquals(ShardIteratorType.AT_TIMESTAMP, request.shardIteratorType());
+        assertEquals(timestamp.toInstant(), request.timestamp());
+        assertNull(request.startingSequenceNumber());
+        assertEquals(SHARD_ID, request.shardId());
+        assertEquals(createDynamoDBStreamsArnFromKinesisStreamName(STREAM_NAME), request.streamName());
+    }
+
+    @Test
+    void testInitializeAtTimestampMarkerWithNoConfiguredTimestampFailsFast() {
+        // Lease holds the AT_TIMESTAMP marker but the configured position was changed away from AT_TIMESTAMP,
+        // so it no longer carries a timestamp. The adapter must fail fast with a clear cause rather than NPE.
+        // This is non-destructive: no GetShardIterator is issued and no checkpoint is written.
+        InitialPositionInStreamExtended position =
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> dynamoDBStreamsDataFetcher.initialize(ExtendedSequenceNumber.AT_TIMESTAMP, position));
+
+        assertTrue(exception.getMessage().contains("AT_TIMESTAMP"));
+        verify(amazonDynamoDBStreamsAdapterClient, Mockito.never()).getShardIterator(any(GetShardIteratorRequest.class));
+    }
+
+    @Test
     void testDdbGetRecordsWithoutInitialization() {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,

@@ -213,13 +213,19 @@ public class AmazonDynamoDBStreamsAdapterClient implements KinesisAsyncClient {
     private GetShardIteratorResponse getShardIteratorResponse(GetShardIteratorRequest getShardIteratorRequest)
             throws AwsServiceException, SdkClientException {
         String consumerId = getConsumerId(getShardIteratorRequest.overrideConfiguration());
-        software.amazon.awssdk.services.dynamodb.model.GetShardIteratorRequest ddbGetShardIteratorRequest =
+        software.amazon.awssdk.services.dynamodb.model.GetShardIteratorRequest.Builder ddbRequestBuilder =
                 DynamoDBStreamsRequestsBuilder.getShardIteratorRequestBuilder(consumerId)
                         .streamArn(getShardIteratorRequest.streamName())
                         .shardIteratorType(getShardIteratorRequest.shardIteratorTypeAsString())
                         .shardId(getShardIteratorRequest.shardId())
-                        .sequenceNumber(getShardIteratorRequest.startingSequenceNumber())
-                        .build();
+                        .sequenceNumber(getShardIteratorRequest.startingSequenceNumber());
+        // DynamoDB Streams only accepts a timestamp for the AT_TIMESTAMP iterator type and rejects the
+        // request if one is supplied for any other type.
+        if (ShardIteratorType.AT_TIMESTAMP.equals(getShardIteratorRequest.shardIteratorType())) {
+            ddbRequestBuilder.timestamp(getShardIteratorRequest.timestamp());
+        }
+        software.amazon.awssdk.services.dynamodb.model.GetShardIteratorRequest ddbGetShardIteratorRequest =
+                ddbRequestBuilder.build();
         software.amazon.awssdk.services.dynamodb.model.GetShardIteratorResponse result;
         try {
             result = internalClient.getShardIterator(ddbGetShardIteratorRequest);

@@ -46,6 +46,7 @@ import software.amazon.kinesis.retrieval.DataFetcherProviderConfig;
 import software.amazon.kinesis.retrieval.RetrievalConfig;
 import software.amazon.kinesis.retrieval.polling.DataFetcher;
 import software.amazon.kinesis.retrieval.polling.PollingConfig;
+import java.time.Instant;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -57,6 +58,34 @@ public final class StreamsSchedulerFactory {
     static final String STREAM_TYPE_DYNAMODB_STREAMS = "DynamoDB_Streams";
 
     private StreamsSchedulerFactory() {}
+
+    /**
+     * Validates that the requested initial position is one the DynamoDB Streams adapter supports, and that
+     * an AT_TIMESTAMP position is not in the future.
+     *
+     * @param initialPositionInStreamExtended the position to validate
+     */
+    private static void validateInitialPositionInStream(
+            final InitialPositionInStreamExtended initialPositionInStreamExtended) {
+        final InitialPositionInStream initialPosition =
+                initialPositionInStreamExtended.getInitialPositionInStream();
+        if (!(initialPosition == InitialPositionInStream.LATEST
+                || initialPosition == InitialPositionInStream.TRIM_HORIZON
+                || initialPosition == InitialPositionInStream.AT_TIMESTAMP)) {
+            throw new IllegalArgumentException("Invalid Initial PositionInStream: " + initialPosition);
+        }
+        if (initialPosition == InitialPositionInStream.AT_TIMESTAMP) {
+            final Instant timestamp = initialPositionInStreamExtended.getTimestamp().toInstant();
+            final Instant now = Instant.now();
+            if (timestamp.isAfter(now)) {
+                throw new IllegalArgumentException(
+                        "AT_TIMESTAMP initial position timestamp " + timestamp + " is in the future (current time "
+                                + now + "). A future timestamp is not allowed; supply a timestamp at or before "
+                                + "the current time.");
+            }
+        }
+    }
+
     /**
      * Factory function for customers to create a stream tracker to consume multiple DynamoDB Streams from a single
      * application.
@@ -84,12 +113,7 @@ public final class StreamsSchedulerFactory {
             }
         }
 
-        if (!(initialPositionInStreamExtended.getInitialPositionInStream() == InitialPositionInStream.LATEST
-                || initialPositionInStreamExtended.getInitialPositionInStream() == InitialPositionInStream
-                .TRIM_HORIZON)) {
-            throw new IllegalArgumentException("Invalid Initial PositionInStream: "
-                    + initialPositionInStreamExtended.getInitialPositionInStream());
-        }
+        validateInitialPositionInStream(initialPositionInStreamExtended);
 
         List<StreamConfig> streamConfigList = dynamoDBStreamArns.stream()
                 .map(streamArn -> new StreamConfig(
@@ -116,12 +140,7 @@ public final class StreamsSchedulerFactory {
             throw new IllegalArgumentException("Invalid DynamoDB Stream ARN: " + dynamoDBStreamArn);
         }
 
-        if (!(initialPositionInStreamExtended.getInitialPositionInStream() == InitialPositionInStream.LATEST
-                || initialPositionInStreamExtended.getInitialPositionInStream() == InitialPositionInStream
-                .TRIM_HORIZON)) {
-            throw new IllegalArgumentException("Invalid Initial PositionInStream: "
-                    + initialPositionInStreamExtended.getInitialPositionInStream());
-        }
+        validateInitialPositionInStream(initialPositionInStreamExtended);
         return new SingleStreamTracker(
                 StreamIdentifier.singleStreamInstance(
                         createKinesisStreamIdentifierFromDynamoDBStreamsArn(dynamoDBStreamArn, false),

@@ -43,6 +43,7 @@ import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -156,22 +157,33 @@ class StreamsSchedulerFactoryTest {
     }
 
     @Test
-    void testCreateMultiStreamTracker_InvalidInitialPositionInStream() {
+    void testCreateMultiStreamTracker_AT_TIMESTAMP() {
         List<String> streamArns = Arrays.asList(
                 "arn:aws:dynamodb:us-west-2:123456789012:table/Table1/stream/2024-02-03T00:00:00.000",
                 "arn:aws:dynamodb:us-west-2:123456789012:table/Table2/stream/2024-02-03T00:00:00.000"
         );
 
+        Date timestamp = new Date();
         InitialPositionInStreamExtended position =
-                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(new Date());
+                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(timestamp);
         FormerStreamsLeasesDeletionStrategy deletionStrategy =
                 new FormerStreamsLeasesDeletionStrategy.NoLeaseDeletionStrategy();
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> StreamsSchedulerFactory.createMultiStreamTracker(
-                        streamArns, position, deletionStrategy)
-        );
+        StreamTracker tracker = StreamsSchedulerFactory.createMultiStreamTracker(
+                streamArns, position, deletionStrategy);
+
+        assertNotNull(tracker);
+        assertTrue(tracker instanceof DynamoDBStreamsMultiStreamTracker);
+
+        List<StreamConfig> configs = ((DynamoDBStreamsMultiStreamTracker) tracker).streamConfigList();
+        assertEquals(2, configs.size());
+        // The timestamp must survive onto every StreamConfig: it is what the DataFetcher later hands to
+        // GetShardIterator for AT_TIMESTAMP leases.
+        configs.forEach(config -> {
+            assertEquals(InitialPositionInStream.AT_TIMESTAMP,
+                    config.initialPositionInStreamExtended().getInitialPositionInStream());
+            assertEquals(timestamp, config.initialPositionInStreamExtended().getTimestamp());
+        });
     }
 
     @Test
@@ -216,14 +228,20 @@ class StreamsSchedulerFactoryTest {
     }
 
     @Test
-    void testCreateSingleStreamTracker_InvalidInitialPositionInStream() {
+    void testCreateSingleStreamTracker_AT_TIMESTAMP() {
+        Date timestamp = new Date();
         InitialPositionInStreamExtended position =
-                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(new Date());
+                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(timestamp);
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> StreamsSchedulerFactory.createSingleStreamTracker(VALID_STREAM_ARN, position)
-        );
+        StreamTracker tracker = StreamsSchedulerFactory.createSingleStreamTracker(VALID_STREAM_ARN, position);
+
+        assertNotNull(tracker);
+        assertFalse(tracker.isMultiStream());
+
+        StreamConfig config = tracker.streamConfigList().get(0);
+        assertEquals(InitialPositionInStream.AT_TIMESTAMP,
+                config.initialPositionInStreamExtended().getInitialPositionInStream());
+        assertEquals(timestamp, config.initialPositionInStreamExtended().getTimestamp());
     }
 
     @Test
@@ -237,6 +255,40 @@ class StreamsSchedulerFactoryTest {
         );
 
         assertEquals("Invalid DynamoDB Stream ARN: " + INVALID_STREAM_ARN, exception.getMessage());
+    }
+
+    @Test
+    void testCreateSingleStreamTrackerRejectsFutureAtTimestamp() {
+        // A future AT_TIMESTAMP must fail fast at tracker-creation time (before the Scheduler is built), so
+        // the application halts rather than retrying GetShardIterator indefinitely.
+        Date future = new Date(System.currentTimeMillis() + 60_000L);
+        InitialPositionInStreamExtended position =
+                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(future);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> StreamsSchedulerFactory.createSingleStreamTracker(VALID_STREAM_ARN, position)
+        );
+        assertTrue(exception.getMessage().contains("future"),
+                "Expected a future-timestamp message, got: " + exception.getMessage());
+    }
+
+    @Test
+    void testCreateMultiStreamTrackerRejectsFutureAtTimestamp() {
+        List<String> streamArns = Arrays.asList(
+                "arn:aws:dynamodb:us-west-2:123456789012:table/Table1/stream/2024-02-03T00:00:00.000");
+        Date future = new Date(System.currentTimeMillis() + 60_000L);
+        InitialPositionInStreamExtended position =
+                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(future);
+        FormerStreamsLeasesDeletionStrategy deletionStrategy =
+                new FormerStreamsLeasesDeletionStrategy.NoLeaseDeletionStrategy();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> StreamsSchedulerFactory.createMultiStreamTracker(streamArns, position, deletionStrategy)
+        );
+        assertTrue(exception.getMessage().contains("future"),
+                "Expected a future-timestamp message, got: " + exception.getMessage());
     }
 
     @Test
