@@ -1680,4 +1680,380 @@ public class DynamoDBStreamsShardSyncerTest {
         assertEquals(parentLease.leaseKey(), deletedInOrder.get(0).leaseKey());
         assertEquals(childLease.leaseKey(), deletedInOrder.get(1).leaseKey());
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // AT_TIMESTAMP: initial shard discovery (empty lease table)
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    void testAtTimestampInitialDiscoveryLeasesEveryShardAtTimestamp() throws Exception {
+        // Initial discovery uses a normal (unfiltered) DescribeStream, and every shard it returns gets a
+        // lease at AT_TIMESTAMP -- including the closed ones, because the requested timestamp may fall
+        // inside a shard that has since closed.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String rootId = String.format("shardId-%019d-001", base);
+        String midId = String.format("shardId-%019d-002", base + 1000);
+        String openId = String.format("shardId-%019d-003", base + 2000);
+
+        Shard root = createTestShard(rootId, null, null, "0", "100");      // closed
+        Shard mid = createTestShard(midId, rootId, null, "101", "200");    // closed
+        Shard open = createTestShard(openId, midId, null, "201", null);    // open
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(root, mid, open));
+        when(leaseRefresher.listLeases()).thenReturn(Collections.emptyList());
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        boolean result = shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher, atTimestamp(new java.util.Date()), metricsScope,
+                false, true /* isLeaseTableEmpty */);
+
+        assertTrue(result);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(3)).createLeaseIfNotExists(captor.capture());
+
+        Map<String, Lease> leaseMap = captor.getAllValues().stream()
+                .collect(Collectors.toMap(Lease::leaseKey, l -> l));
+        assertEquals(new HashSet<>(Arrays.asList(rootId, midId, openId)), leaseMap.keySet());
+        for (Lease lease : captor.getAllValues()) {
+            assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, lease.checkpoint(),
+                    "Expected AT_TIMESTAMP checkpoint for initially discovered shard " + lease.leaseKey());
+        }
+
+        // Parents must be created before their children so a worker never starts a child ahead of its parent.
+        List<String> creationOrder = captor.getAllValues().stream()
+                .map(Lease::leaseKey).collect(Collectors.toList());
+        assertEquals(Arrays.asList(rootId, midId, openId), creationOrder);
+
+        // Per-initial-position metric must be emitted for AT_TIMESTAMP lease creation on the shard-sync (bootstrap and periodic discovery) path.
+        verify(metricsScope, atLeastOnce()).addData(
+                org.mockito.ArgumentMatchers.eq("CreateLease_AT_TIMESTAMP.Success"),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void testAtTimestampInitialDiscoveryMultiStreamMode() throws Exception {
+        StreamInfoManager streamInfoManagerMock = mock(StreamInfoManager.class);
+        DynamoDBStreamsShardSyncer multiStreamSyncer = new DynamoDBStreamsShardSyncer(
+                true, MULTI_STREAM_NAME, true, streamInfoManagerMock);
+
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String parentId = String.format("shardId-%019d-001", base);
+        String childId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard parent = createTestShard(parentId, null, null, "0", "100");
+        Shard child = createTestShard(childId, parentId, null, "101", null);
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(parent, child));
+        when(shardDetector.streamIdentifier()).thenReturn(MULTI_STREAM_IDENTIFIER);
+        when(leaseRefresher.listLeasesForStream(MULTI_STREAM_IDENTIFIER)).thenReturn(Collections.emptyList());
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        multiStreamSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher, atTimestamp(new java.util.Date()), metricsScope, false, true);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(2)).createLeaseIfNotExists(captor.capture());
+
+        for (Lease lease : captor.getAllValues()) {
+            assertTrue(lease instanceof MultiStreamLease);
+            assertEquals(MULTI_STREAM_NAME, ((MultiStreamLease) lease).streamIdentifier());
+            assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, lease.checkpoint());
+        }
+    }
+
+    @Test
+    void testAtTimestampInitialDiscoverySkipsInconsistentShards() {
+        // An open child of an open parent is an inconsistent view of the shard graph. It is skipped and
+        // picked up on a later sync once DescribeStream returns a consistent view.
+        String openParentId = "shardId-000";
+        String inconsistentChildId = "shardId-001";
+
+        Shard openParent = createTestShard(openParentId, null, null);          // open
+        Shard inconsistentChild = createTestShard(inconsistentChildId, openParentId, null); // open, open parent
+
+        List<Lease> leases = shardSyncer.determineNewLeasesToCreate(
+                Arrays.asList(openParent, inconsistentChild),
+                Collections.emptyList(),
+                atTimestamp(new java.util.Date()),
+                new HashSet<>(Collections.singletonList(inconsistentChildId)),
+                new DynamoDBStreamsShardSyncer.MultiStreamArgs(false, null));
+
+        assertEquals(1, leases.size());
+        assertEquals(openParentId, leases.get(0).leaseKey());
+        assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, leases.get(0).checkpoint());
+    }
+
+    @Test
+    void testAtTimestampInitialDiscoveryUsesTheSamePathAsTrimHorizon() {
+        // AT_TIMESTAMP and TRIM_HORIZON must produce the same lease set for the same shard graph, differing
+        // only in the checkpoint. This is what lets both share determineNewLeasesToCreate.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        List<Shard> shards = Arrays.asList(
+                createTestShard(String.format("shardId-%019d-001", base), null, null, "0", "100"),
+                createTestShard(String.format("shardId-%019d-002", base + 1000),
+                        String.format("shardId-%019d-001", base), null, "101", "200"),
+                createTestShard(String.format("shardId-%019d-003", base + 2000),
+                        String.format("shardId-%019d-002", base + 1000), null, "201", null));
+
+        DynamoDBStreamsShardSyncer.MultiStreamArgs args =
+                new DynamoDBStreamsShardSyncer.MultiStreamArgs(false, null);
+
+        List<Lease> atTimestampLeases = shardSyncer.determineNewLeasesToCreate(
+                shards, Collections.emptyList(), atTimestamp(new java.util.Date()), new HashSet<>(), args);
+        List<Lease> trimHorizonLeases = shardSyncer.determineNewLeasesToCreate(
+                shards, Collections.emptyList(),
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON),
+                new HashSet<>(), args);
+
+        assertEquals(trimHorizonLeases.stream().map(Lease::leaseKey).collect(Collectors.toList()),
+                atTimestampLeases.stream().map(Lease::leaseKey).collect(Collectors.toList()),
+                "AT_TIMESTAMP and TRIM_HORIZON must lease the same shards in the same order");
+        assertEquals(3, atTimestampLeases.size());
+        atTimestampLeases.forEach(l -> assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, l.checkpoint()));
+        trimHorizonLeases.forEach(l -> assertEquals(ExtendedSequenceNumber.TRIM_HORIZON, l.checkpoint()));
+    }
+
+    @Test
+    void testInitialDiscoveryUnchangedForTrimHorizon() throws Exception {
+        // The all-shards path is gated on AT_TIMESTAMP. TRIM_HORIZON keeps the pre-existing behaviour of
+        // walking open shards and their ancestors, with TRIM_HORIZON checkpoints.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String rootId = String.format("shardId-%019d-001", base);
+        String openId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard root = createTestShard(rootId, null, null, "0", "100");
+        Shard open = createTestShard(openId, rootId, null, "101", null);
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(root, open));
+        when(leaseRefresher.listLeases()).thenReturn(Collections.emptyList());
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher,
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON),
+                metricsScope, false, true);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(2)).createLeaseIfNotExists(captor.capture());
+        for (Lease lease : captor.getAllValues()) {
+            assertEquals(ExtendedSequenceNumber.TRIM_HORIZON, lease.checkpoint());
+        }
+    }
+
+    @Test
+    void testInitialDiscoveryUnchangedForLatest() throws Exception {
+        // LATEST must not be dragged into the all-shards path either: only the open shard gets a lease.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String rootId = String.format("shardId-%019d-001", base);
+        String openId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard root = createTestShard(rootId, null, null, "0", "100");
+        Shard open = createTestShard(openId, rootId, null, "101", null);
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(root, open));
+        when(leaseRefresher.listLeases()).thenReturn(Collections.emptyList());
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher,
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.LATEST),
+                metricsScope, false, true);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(1)).createLeaseIfNotExists(captor.capture());
+        assertEquals(openId, captor.getValue().leaseKey());
+        assertEquals(ExtendedSequenceNumber.LATEST, captor.getValue().checkpoint());
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // AT_TIMESTAMP: periodic shard discovery (non-empty lease table)
+    // ---------------------------------------------------------------------------------------------
+
+    @Test
+    void testAtTimestampPeriodicDiscoveryDescendantOfLeasedShardStillGetsAtTimestamp() throws Exception {
+        // A child discovered after a reshard descends from a shard that already has a lease, but it must
+        // still start at the requested timestamp: that ancestor's lease may itself be sitting unprocessed at
+        // AT_TIMESTAMP, in which case TRIM_HORIZON would deliver records from before the timestamp.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String parentId = String.format("shardId-%019d-001", base);
+        String childId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard parent = createTestShard(parentId, null, null, "0", "100");   // closed
+        Shard child = createTestShard(childId, parentId, null, "101", null); // open, newly discovered
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(parent, child));
+
+        Lease parentLease = new Lease();
+        parentLease.leaseKey(parentId);
+        parentLease.checkpoint(ExtendedSequenceNumber.SHARD_END);
+        parentLease.parentShardIds(Collections.emptyList());
+        when(leaseRefresher.listLeases()).thenReturn(Collections.singletonList(parentLease));
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher, atTimestamp(new java.util.Date()), metricsScope,
+                false, false /* lease table not empty */);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(1)).createLeaseIfNotExists(captor.capture());
+        assertEquals(childId, captor.getValue().leaseKey());
+        assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, captor.getValue().checkpoint());
+    }
+
+    @Test
+    void testAtTimestampPeriodicDiscoveryAncestorLeasesAlsoGetAtTimestamp() throws Exception {
+        // grandparent (leased) -> parent (no lease) -> child (no lease, open).
+        // The child is a descendant, so the ancestor lease for parent is created inside
+        // checkIfDescendantAndAddNewLeasesForAncestors. Both new leases must be AT_TIMESTAMP.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String grandparentId = String.format("shardId-%019d-001", base);
+        String parentId = String.format("shardId-%019d-002", base + 1000);
+        String childId = String.format("shardId-%019d-003", base + 2000);
+
+        Shard grandparent = createTestShard(grandparentId, null, null, "0", "100");
+        Shard parent = createTestShard(parentId, grandparentId, null, "101", "200");
+        Shard child = createTestShard(childId, parentId, null, "201", null);
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(grandparent, parent, child));
+
+        Lease grandparentLease = new Lease();
+        grandparentLease.leaseKey(grandparentId);
+        grandparentLease.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+        grandparentLease.parentShardIds(Collections.emptyList());
+        when(leaseRefresher.listLeases()).thenReturn(Collections.singletonList(grandparentLease));
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher, atTimestamp(new java.util.Date()), metricsScope, false, false);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(2)).createLeaseIfNotExists(captor.capture());
+
+        Map<String, Lease> leaseMap = captor.getAllValues().stream()
+                .collect(Collectors.toMap(Lease::leaseKey, l -> l));
+        assertEquals(new HashSet<>(Arrays.asList(parentId, childId)), leaseMap.keySet());
+        assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, leaseMap.get(parentId).checkpoint());
+        assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, leaseMap.get(childId).checkpoint());
+    }
+
+    @Test
+    void testPeriodicDiscoveryDescendantStillGetsTrimHorizonForTrimHorizonPosition() throws Exception {
+        // The override is scoped to AT_TIMESTAMP; TRIM_HORIZON descendants keep the original behaviour.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String parentId = String.format("shardId-%019d-001", base);
+        String childId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard parent = createTestShard(parentId, null, null, "0", "100");
+        Shard child = createTestShard(childId, parentId, null, "101", null);
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(parent, child));
+
+        Lease parentLease = new Lease();
+        parentLease.leaseKey(parentId);
+        parentLease.checkpoint(ExtendedSequenceNumber.SHARD_END);
+        parentLease.parentShardIds(Collections.emptyList());
+        when(leaseRefresher.listLeases()).thenReturn(Collections.singletonList(parentLease));
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher,
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON),
+                metricsScope, false, false);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(1)).createLeaseIfNotExists(captor.capture());
+        assertEquals(ExtendedSequenceNumber.TRIM_HORIZON, captor.getValue().checkpoint());
+    }
+
+    @Test
+    void testAtTimestampPeriodicDiscoveryShardWithNoLeasedAncestorGetsAtTimestamp() throws Exception {
+        // A shard whose lineage no lease covers cannot rely on an ancestor having consumed the records
+        // before it, so it starts at the requested timestamp.
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String leasedId = String.format("shardId-%019d-001", base);
+        String orphanId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard leased = createTestShard(leasedId, null, null, "0", null);   // open, already leased
+        Shard orphan = createTestShard(orphanId, null, null, "0", null);   // open, unrelated lineage
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(leased, orphan));
+
+        Lease existing = new Lease();
+        existing.leaseKey(leasedId);
+        existing.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+        existing.parentShardIds(Collections.emptyList());
+        when(leaseRefresher.listLeases()).thenReturn(Collections.singletonList(existing));
+        when(leaseRefresher.createLeaseIfNotExists(any())).thenReturn(true);
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher, atTimestamp(new java.util.Date()), metricsScope, false, false);
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(1)).createLeaseIfNotExists(captor.capture());
+        assertEquals(orphanId, captor.getValue().leaseKey());
+        assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, captor.getValue().checkpoint());
+    }
+
+    @Test
+    void testAtTimestampPeriodicDiscoveryCreatesNothingWhenAllShardsLeased() throws Exception {
+        long base = System.currentTimeMillis() - Duration.ofHours(7).toMillis();
+        String parentId = String.format("shardId-%019d-001", base);
+        String childId = String.format("shardId-%019d-002", base + 1000);
+
+        Shard parent = createTestShard(parentId, null, null, "0", "100");
+        Shard child = createTestShard(childId, parentId, null, "101", null);
+
+        when(shardDetector.listShards(anyString())).thenReturn(Arrays.asList(parent, child));
+
+        Lease parentLease = new Lease();
+        parentLease.leaseKey(parentId);
+        parentLease.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+        parentLease.parentShardIds(Collections.emptyList());
+        Lease childLease = new Lease();
+        childLease.leaseKey(childId);
+        childLease.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+        childLease.parentShardIds(Collections.singletonList(parentId));
+        when(leaseRefresher.listLeases()).thenReturn(Arrays.asList(parentLease, childLease));
+
+        shardSyncer.checkAndCreateLeaseForNewShards(
+                shardDetector, leaseRefresher, atTimestamp(new java.util.Date()), metricsScope, false, false);
+
+        verify(leaseRefresher, never()).createLeaseIfNotExists(any());
+    }
+
+    @Test
+    void testCleanupLeaseForClosedShardDoesNotDeleteParentWhenChildAtAtTimestamp() throws Exception {
+        // Parent shard is SHARD_END with a child. Child is at AT_TIMESTAMP (unprocessed).
+        // The parent lease must NOT be deleted until the child moves past AT_TIMESTAMP.
+        String parentId = "shardId-000";
+        String childId = "shardId-001";
+
+        Lease parentLease = new Lease();
+        parentLease.leaseKey(parentId);
+        parentLease.checkpoint(ExtendedSequenceNumber.SHARD_END);
+        parentLease.childShardIds(Collections.singleton(childId));
+        parentLease.parentShardIds(Collections.emptyList());
+
+        Lease childLease = new Lease();
+        childLease.leaseKey(childId);
+        childLease.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+        childLease.parentShardIds(Collections.singletonList(parentId));
+
+        Map<String, Lease> trackedLeases = new java.util.HashMap<>();
+        trackedLeases.put(parentId, parentLease);
+        trackedLeases.put(childId, childLease);
+
+        shardSyncer.cleanupLeaseForClosedShard(
+                parentId, trackedLeases, new java.util.HashMap<>(), leaseRefresher,
+                new DynamoDBStreamsShardSyncer.MultiStreamArgs(false, null));
+
+        verify(leaseRefresher, never()).deleteLease(any());
+    }
+
+    private static InitialPositionInStreamExtended atTimestamp(java.util.Date timestamp) {
+        return InitialPositionInStreamExtended.newInitialPositionAtTimestamp(timestamp);
+    }
 }

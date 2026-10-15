@@ -19,6 +19,7 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.DynamoDBStreamsShardSync
 import com.amazonaws.services.dynamodbv2.streamsadapter.util.KinesisMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.kinesis.model.ChildShard;
@@ -48,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -237,14 +239,90 @@ class DynamoDBStreamsShutdownTaskTest {
         verify(recordProcessorCheckpointer, never()).largestPermittedCheckpointValue(any());
     }
 
+    @Test
+    void testChildShardLeasesGetAtTimestampCheckpointForAtTimestampPosition() throws Exception {
+        // Fast shard discovery at shard end must not leave a child at TRIM_HORIZON under AT_TIMESTAMP: the
+        // parent may have reached SHARD_END without consuming anything because the timestamp was past its
+        // end, and TRIM_HORIZON would then deliver the child's records from before the timestamp.
+        ChildShard child1 = ChildShard.builder().shardId("child-1").build();
+        ChildShard child2 = ChildShard.builder().shardId("child-2").build();
+        task = createShutdownTask(
+                ShutdownReason.SHARD_END,
+                Arrays.asList(child1, child2),
+                InitialPositionInStreamExtended.newInitialPositionAtTimestamp(new java.util.Date()));
+
+        Lease currentLease = new Lease();
+        currentLease.leaseKey(SHARD_ID);
+        currentLease.leaseOwner(WORKER_ID);
+        currentLease.checkpoint(ExtendedSequenceNumber.AT_TIMESTAMP);
+
+        when(leaseCoordinator.getCurrentlyHeldLease(SHARD_ID)).thenReturn(currentLease);
+        when(leaseRefresher.getLease(SHARD_ID)).thenReturn(currentLease);
+        when(recordProcessorCheckpointer.lastCheckpointValue()).thenReturn(ExtendedSequenceNumber.SHARD_END);
+        // KCL's createLeaseForChildShard hands back a TRIM_HORIZON lease; the adapter must override it.
+        when(shardSyncer.createLeaseForChildShard(any(), any())).thenAnswer(invocation -> {
+            Lease lease = new Lease();
+            lease.leaseKey("child-lease");
+            lease.checkpoint(ExtendedSequenceNumber.TRIM_HORIZON);
+            return lease;
+        });
+
+        task.call();
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(2)).createLeaseIfNotExists(captor.capture());
+        for (Lease created : captor.getAllValues()) {
+            assertEquals(ExtendedSequenceNumber.AT_TIMESTAMP, created.checkpoint());
+        }
+    }
+
+    @Test
+    void testChildShardLeasesKeepTrimHorizonForTrimHorizonPosition() throws Exception {
+        // The override is scoped to AT_TIMESTAMP. TRIM_HORIZON and LATEST applications have no timestamp to
+        // hand to GetShardIterator, so the KCL default must be left alone.
+        ChildShard child1 = ChildShard.builder().shardId("child-1").build();
+        task = createShutdownTask(
+                ShutdownReason.SHARD_END,
+                Collections.singletonList(child1),
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
+
+        Lease currentLease = new Lease();
+        currentLease.leaseKey(SHARD_ID);
+        currentLease.leaseOwner(WORKER_ID);
+        currentLease.checkpoint(ExtendedSequenceNumber.TRIM_HORIZON);
+
+        when(leaseCoordinator.getCurrentlyHeldLease(SHARD_ID)).thenReturn(currentLease);
+        when(leaseRefresher.getLease(SHARD_ID)).thenReturn(currentLease);
+        when(recordProcessorCheckpointer.lastCheckpointValue()).thenReturn(ExtendedSequenceNumber.SHARD_END);
+        when(shardSyncer.createLeaseForChildShard(any(), any())).thenAnswer(invocation -> {
+            Lease lease = new Lease();
+            lease.leaseKey("child-lease");
+            lease.checkpoint(ExtendedSequenceNumber.TRIM_HORIZON);
+            return lease;
+        });
+
+        task.call();
+
+        ArgumentCaptor<Lease> captor = ArgumentCaptor.forClass(Lease.class);
+        verify(leaseRefresher, times(1)).createLeaseIfNotExists(captor.capture());
+        assertEquals(ExtendedSequenceNumber.TRIM_HORIZON, captor.getValue().checkpoint());
+    }
+
     private DynamoDBStreamsShutdownTask createShutdownTask(ShutdownReason reason, List<ChildShard> childShards) {
+        return createShutdownTask(reason, childShards,
+                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON));
+    }
+
+    private DynamoDBStreamsShutdownTask createShutdownTask(ShutdownReason reason,
+                                                           List<ChildShard> childShards,
+                                                           InitialPositionInStreamExtended initialPosition) {
         return new DynamoDBStreamsShutdownTask(
                 shardInfo,
                 shardDetector,
                 shardRecordProcessor,
                 recordProcessorCheckpointer,
                 reason,
-                InitialPositionInStreamExtended.newInitialPosition(InitialPositionInStream.TRIM_HORIZON),
+                initialPosition,
                 true,
                 false,
                 leaseCoordinator,

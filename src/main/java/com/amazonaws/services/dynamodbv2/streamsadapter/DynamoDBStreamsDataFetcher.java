@@ -217,8 +217,8 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
      *                                For TRIM_HORIZON and LATEST, it will be TRIM_HORIZON and LATEST.
      *                                For everything else, it will be the last sequence number checkpointed in the
      *                                lease table.
-     * @param initialPositionInStream The initial position in stream. Will be either TRIM_HORIZON or LATEST for
-     *                                DynamoDB Streams.
+     * @param initialPositionInStream The initial position in stream. Will be TRIM_HORIZON, LATEST or
+     *                                AT_TIMESTAMP for DynamoDB Streams.
      */
     @Override
     public void initialize(String initialCheckpoint, InitialPositionInStreamExtended initialPositionInStream) {
@@ -262,6 +262,14 @@ public class DynamoDBStreamsDataFetcher implements DataFetcher {
             getShardIteratorRequestBuilder.shardIteratorType(ShardIteratorType.LATEST);
         } else if (Objects.equals(ExtendedSequenceNumber.TRIM_HORIZON.sequenceNumber(), sequenceNumber)) {
             getShardIteratorRequestBuilder.shardIteratorType(ShardIteratorType.TRIM_HORIZON);
+        } else if (Objects.equals(ExtendedSequenceNumber.AT_TIMESTAMP.sequenceNumber(), sequenceNumber)) {
+            // The lease holds the AT_TIMESTAMP marker but the configured initial position no longer carries a timestamp
+            if (initialPositionInStream.getTimestamp() == null) {
+                throw new IllegalArgumentException("Shard " + shardId + " lease is checkpointed at AT_TIMESTAMP "
+                        + "but the configured initial position carries no timestamp.");
+            }
+            getShardIteratorRequestBuilder.shardIteratorType(ShardIteratorType.AT_TIMESTAMP);
+            getShardIteratorRequestBuilder.timestamp(initialPositionInStream.getTimestamp().toInstant());
         } else if (Objects.equals(ExtendedSequenceNumber.SHARD_END.sequenceNumber(), sequenceNumber)) {
             nextIterator = null;
             isShardEndReached = true;

@@ -136,6 +136,58 @@ class AmazonDynamoDBStreamsAdapterClientTest {
     }
 
     @Test
+    void testGetShardIteratorAtTimestampForwardsTimestampToDynamoDb() {
+        Instant timestamp = Instant.ofEpochMilli(1779356409031L);
+
+        ArgumentCaptor<GetShardIteratorRequest> captor = ArgumentCaptor.forClass(GetShardIteratorRequest.class);
+        when(dynamoDbStreamsClient.getShardIterator(captor.capture()))
+                .thenReturn(GetShardIteratorResponse.builder().shardIterator(ITERATOR).build());
+
+        software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest kinesisRequest =
+                software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest.builder()
+                        .streamName(STREAM_ARN)
+                        .shardId(SHARD_ID)
+                        .shardIteratorType(ShardIteratorType.AT_TIMESTAMP)
+                        .timestamp(timestamp)
+                        .build();
+
+        software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse response =
+                adapterClient.getShardIterator(kinesisRequest).join();
+
+        assertNotNull(response);
+        assertEquals(ITERATOR, response.shardIterator());
+
+        GetShardIteratorRequest ddbRequest = captor.getValue();
+        assertEquals(STREAM_ARN, ddbRequest.streamArn());
+        assertEquals(SHARD_ID, ddbRequest.shardId());
+        assertEquals("AT_TIMESTAMP", ddbRequest.shardIteratorTypeAsString());
+        assertEquals(timestamp, ddbRequest.timestamp());
+    }
+
+    @Test
+    void testGetShardIteratorDoesNotForwardTimestampForOtherIteratorTypes() {
+        // DynamoDB Streams rejects a timestamp on any iterator type other than AT_TIMESTAMP, so it must
+        // not be copied across even when the incoming Kinesis request carries one.
+        ArgumentCaptor<GetShardIteratorRequest> captor = ArgumentCaptor.forClass(GetShardIteratorRequest.class);
+        when(dynamoDbStreamsClient.getShardIterator(captor.capture()))
+                .thenReturn(GetShardIteratorResponse.builder().shardIterator(ITERATOR).build());
+
+        software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest kinesisRequest =
+                software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest.builder()
+                        .streamName(STREAM_ARN)
+                        .shardId(SHARD_ID)
+                        .shardIteratorType(ShardIteratorType.TRIM_HORIZON)
+                        .timestamp(Instant.ofEpochMilli(1779356409031L))
+                        .build();
+
+        adapterClient.getShardIterator(kinesisRequest).join();
+
+        GetShardIteratorRequest ddbRequest = captor.getValue();
+        assertEquals("TRIM_HORIZON", ddbRequest.shardIteratorTypeAsString());
+        assertNull(ddbRequest.timestamp());
+    }
+
+    @Test
     void testGetShardIteratorWithTrimmedDataAndSkip() {
         // Setup initial failure with TrimmedDataAccessException
         when(dynamoDbStreamsClient.getShardIterator(any(GetShardIteratorRequest.class)))

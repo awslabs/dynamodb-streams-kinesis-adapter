@@ -26,7 +26,7 @@
         <software-kinesis.version>3.5.1</software-kinesis.version>
         <gpg.skip>true</gpg.skip>
         <maven.dependency.version>3.0.0</maven.dependency.version>
-        <awssdk.version>2.39.6</awssdk.version>
+        <awssdk.version>2.56.0</awssdk.version>
         <sqlite4java.version>1.0.392</sqlite4java.version>
     </properties>
 
