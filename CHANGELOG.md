@@ -1,4 +1,7 @@
-### Latest Release (v2.4.1)
+### Latest Release (v2.5.0)
+* Adds support for `AT_TIMESTAMP` as an initial position, enabling consumers to start processing DynamoDB Stream records from a specific point in time.
+
+### Release (v2.4.1)
 * describeStream(), getShardIterator(), listStreams(), getDynamoDBStreamsRecords(): removed supplyAsync() wrapping; calls now run synchronously and return completed/failed futures.
 * Upgrades Amazon Kinesis Client Library (KCL) to version 3.5.1.
 
