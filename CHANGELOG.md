@@ -1,4 +1,9 @@
-### Latest Release (v2.5.0)
+### Latest Release (v2.6.0)
+* Upgrades AWS Java SDK to version 2.59.2. **Behavior change:** DynamoDB Streams requests now use account-based endpoints (`<account-id>.streams-ddb.<region>.amazonaws.com`) when the account ID is available. If your network restricts outbound traffic by hostname, allow these endpoints. To keep using regional endpoints, set the account ID endpoint mode to `disabled` (`AWS_ACCOUNT_ID_ENDPOINT_MODE`, `aws.accountIdEndpointMode` or `account_id_endpoint_mode`), or pass a `DynamoDbStreamsClient` built with `AccountIdEndpointMode.DISABLED` to `AmazonDynamoDBStreamsAdapterClient`. See [Endpoints for DynamoDB Streams](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html#Streams.Endpoints).
+* Upgrades Google Guava to version 33.7.1-jre.
+* `createDynamoDBStreamsArnFromKinesisStreamName` now throws `IllegalArgumentException` for a malformed stream name, instead of `ArrayIndexOutOfBoundsException` ([#96](https://github.com/awslabs/dynamodb-streams-kinesis-adapter/issues/96)).
+
+### Release (v2.5.0)
 * Adds support for `AT_TIMESTAMP` as an initial position, enabling consumers to start processing DynamoDB Stream records from a specific point in time.
 
 ### Release (v2.4.1)
