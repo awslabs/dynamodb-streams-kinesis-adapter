@@ -17,6 +17,8 @@ package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -107,7 +109,7 @@ public class KinesisMapperUtilTest {
     void testCreateDynamoDBStreamsArnEdgeCases() {
         // Test with missing components
         String invalidFormat = "region$account";
-        assertThrows(ArrayIndexOutOfBoundsException.class, () ->
+        assertThrows(IllegalArgumentException.class, () ->
                 KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(invalidFormat));
 
         // Test with empty components
@@ -245,6 +247,20 @@ public class KinesisMapperUtilTest {
         );
 
         assertTrue(exception.getMessage().contains("Invalid DynamoDB stream ARN"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "123456789012:",
+            "arn:aws:dynamodb:us-west-2:123456789012:table/TestTable/stream/2024-02-03T00:00:00.000",
+            "123456789012:us-west-2$123456789012$TestTable$2024-02-03T00_00_00.000",
+            "us-west-2$123456789012$TestTable$2024-02-03T00_00_00.000$extra"
+    })
+    void testCreateDynamoDBStreamsArnRejectsMalformedStreamName(String streamName) {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> KinesisMapperUtil.createDynamoDBStreamsArnFromKinesisStreamName(streamName));
+        assertTrue(exception.getMessage().startsWith("Invalid stream name: " + streamName));
     }
 
     @Test
