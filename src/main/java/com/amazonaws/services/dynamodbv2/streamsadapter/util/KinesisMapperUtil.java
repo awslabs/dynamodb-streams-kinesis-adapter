@@ -52,6 +52,8 @@ public final class KinesisMapperUtil {
 
     private static final String DELIMITER = "$";
     private static final String COLON_REPLACEMENT = "_";
+    private static final int STREAM_NAME_PARTS = 4;
+    private static final int MULTI_STREAM_IDENTIFIER_PARTS = 3;
     private static final ObjectMapper MAPPER = new RecordObjectMapper();
 
     private static final String SHARD_ID_SEPARATOR = "-";
@@ -196,9 +198,21 @@ public final class KinesisMapperUtil {
      * @return {@link String} dynamoDBStreamArn
      */
     public static String createDynamoDBStreamsArnFromKinesisStreamName(String streamName) {
-        boolean isMultiStreamMode = streamName.contains(":");
-        String streamNameToUse = isMultiStreamMode ? streamName.split(":")[1] : streamName;
-        String[] parts = streamNameToUse.split(Pattern.quote(DELIMITER));
+        if (streamName == null) {
+            throw new IllegalArgumentException("Stream name must not be null");
+        }
+        String streamNameToUse = streamName;
+        if (streamName.contains(":")) {
+            String[] multiStreamParts = streamName.split(":", -1);
+            if (multiStreamParts.length != MULTI_STREAM_IDENTIFIER_PARTS) {
+                throw invalidStreamName(streamName);
+            }
+            streamNameToUse = multiStreamParts[1];
+        }
+        String[] parts = streamNameToUse.split(Pattern.quote(DELIMITER), -1);
+        if (parts.length != STREAM_NAME_PARTS) {
+            throw invalidStreamName(streamName);
+        }
         String region = parts[0];
         String accountId = parts[1];
         String tableName = parts[2];
@@ -216,5 +230,12 @@ public final class KinesisMapperUtil {
             throw new IllegalArgumentException("Invalid DynamoDB stream ARN: " + dynamoDBStreamArn);
         }
         return dynamoDBStreamArn;
+    }
+
+    private static IllegalArgumentException invalidStreamName(String streamName) {
+        return new IllegalArgumentException("Invalid stream name: " + streamName
+                + ". Expected region$accountId$tableName$streamLabel, or"
+                + " accountId:region$accountId$tableName$streamLabel:1 in multi-stream mode,"
+                + " as created by createKinesisStreamIdentifierFromDynamoDBStreamsArn");
     }
 }
